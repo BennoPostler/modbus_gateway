@@ -7,7 +7,10 @@
       "command": "make",
       "args": [],
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+           "SYSROOT": "home/benno/sysroot-aarch64"
+        }
       },
       "group": {
         "kind": "build",

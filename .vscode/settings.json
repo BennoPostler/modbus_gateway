@@ -1,4 +1,7 @@
 {
+  "terminal.integrated.env.linux": {
+    "SYSROOT": "home/benno/sysroot-aarch64"
+  },
   "cmake.toolchain": "toolchain-aarch64.cmake",
   "cmake.generator": "Ninja",
   "cmake.buildDirectory": "${workspaceFolder}/build",
@@ -76,3 +79,4 @@
     "variant": "cpp"
   }
 }
+

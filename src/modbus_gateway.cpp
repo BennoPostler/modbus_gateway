@@ -9,6 +9,7 @@
 #include <vector>
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <modbus/modbus.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -23,6 +24,8 @@
 #include <iomanip>
 #include <cstdint>
 #include <ctime> // für std::time_t
+
+
 
 std::mutex logMutex;
 
