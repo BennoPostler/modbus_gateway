@@ -1,228 +1,639 @@
-📘 Abschnitt 1: Projektübersicht
-Modbus TCP/RTU + MQTT Gateway
+# Modbus Gateway – Dokumentation
 
-Dieses Projekt implementiert ein robustes Gateway, das Modbus TCP-Anfragen entgegennimmt und über eine serielle Modbus RTU-Verbindung weiterleitet. Zusätzlich bietet es eine vollständige MQTT-Schnittstelle zur Kommunikation mit Modbus-RTU-Geräten, inklusive Unterstützung für:
+## 1. Einführung und Überblick
 
-    Holding Register (Lesen/Schreiben)
+Dieses Projekt stellt ein robustes und flexibles Gateway bereit, das eine Brücke zwischen Modbus TCP, Modbus RTU und MQTT schlägt. Es eignet sich ideal für die Integration klassischer Industrieanlagen (z. B. Wärmepumpen, Energiezähler, Steuerungen) in moderne IoT- oder Smart-Home-Umgebungen.
 
-    Input Register (Lesen)
+**Zentrale Eigenschaften:**
 
-    Coils (Lesen/Schreiben)
+- Vermittlung zwischen **Modbus TCP ↔ RTU**
+- Erweiterung um **MQTT-Kommunikation**
+- Unterstützung für **Coils**, **Discrete Inputs**, **Input Registers**, **Holding Registers**
+- **Mehrfachlese-Operationen** via MQTT
+- **TLS-Verschlüsselung** für MQTT (optional)
+- **Konfigurierbar** via `.ini`-Datei
+- **Logfile-Ausgabe** und MQTT-Log
+- Vollständige Unterstützung von **modbus Diagnose-Funktionen (0x08)**
+- Statistik- und Diagnosedaten über MQTT
 
-    Discrete Inputs (Lesen)
+**Zielgruppen:**
 
-    Lesen einzelner oder mehrerer Werte über MQTT
+- **Entwickler**, die Modbus-Systeme mit modernen IoT-Lösungen verbinden möchten
+- **Systemintegratoren**, die bestehende Industrieanlagen mit MQTT-fähigen Systemen vernetzen
+- **Systemadministratoren**, die eine wartbare, protokollkonforme und automatisierbare Lösung suchen
 
-    Volle MQTT-Logging-Integration
+**Typische Einsatzzwecke:**
 
-Das Gateway eignet sich ideal als Bindeglied zwischen industriellen Modbus-Geräten, Heimautomatisierungssystemen (z. B. Node-RED oder Home Assistant) und übergeordneten Steuerungen.
-🚀 Funktionen
+- Anbindung von Wärmepumpen oder PV-Systemen an Smart Home
+- Ferndiagnose und Fernsteuerung über MQTT
+- Logging und Visualisierung mit Node-RED, InfluxDB, Grafana etc.
+- Ersatz oder Erweiterung bestehender Gateways mit TCP/RTU-Übersetzung
 
-    Modbus-TCP-zu-RTU-Brücke
-    Weiterleitung von Modbus-TCP-Anfragen an einen RTU-Slave über eine serielle Schnittstelle.
+Die Anwendung läuft nativ unter **Linux (Raspberry Pi OS, Debian, Fedora)** und kann über `systemd` als Dienst gestartet werden. Ein MQTT-Broker (z. B. Mosquitto) wird für den vollen Funktionsumfang benötigt.
 
-    MQTT-Schnittstelle
-    Lese- und Schreibzugriff auf Modbus-Geräte via MQTT Topics.
+> Die Software ist vollständig in C++ geschrieben und nutzt moderne Bibliotheken wie libmodbus, Paho MQTT C++ und eine einfache INI-Konfigurationslogik.
+2. Systemübersicht & Architektur
 
-    Mehrfache Registerabfragen
-    Lesung mehrerer Modbus-Register oder Bits in einem Schritt über MQTT.
+Das modbus_gateway ist ein modular aufgebautes Software-System für den Einsatz auf Geräten wie dem Raspberry Pi 5 (aarch64), das Modbus TCP und Modbus RTU bidirektional überbrückt, zusätzlich MQTT-Schnittstellen zur Verfügung stellt und dabei Monitoring, Logging, sowie Diagnosefunktionen nach Modbus-Norm implementiert.
+2.1. Hauptfunktionen
 
-    Rekonfiguration per INI-Datei
-    Alle Parameter (seriell, MQTT, Modbus) sind über /etc/modbus_gateway.ini konfigurierbar.
+    🔁 Modbus TCP ↔ RTU Gateway
+    Weiterleitung von TCP-Anfragen über ein serielles RTU-Interface an ein oder mehrere Modbus-Slaves.
 
-    Stabiles Logging
-    Ausgabe in eine Logdatei und optional via MQTT-Topic.
+    ☁️ MQTT-Anbindung
+    Direkter Zugriff auf Modbus-Register (lesen/schreiben) per MQTT Topics inkl. Mehrfachoperationen.
 
-📡 Abschnitt 2: MQTT-Schnittstelle & Topic-Referenz
+    📊 Statistiken & Diagnosedaten
+    Veröffentlichung von Betriebsdaten über MQTT und Rückgabe über Diagnose-Subfunktionen.
 
-Das Gateway nutzt MQTT als zweite Hauptschnittstelle neben Modbus-TCP. Über definierte Topic-Strukturen können Modbus-Daten gelesen oder geschrieben werden – sowohl einzeln als auch blockweise.
-🔧 Allgemeine Struktur
+    📁 INI-basierte Konfiguration
+    Alle Betriebsparameter werden über eine leicht lesbare .ini-Datei konfiguriert.
 
-Alle MQTT-Topics sind relativ zum Prefix modbus/ (Standard, konfigurierbar über mqtt.topic_prefix in der INI-Datei).
+    🛡️ TLS-Verschlüsselung
+    MQTT-Verbindungen können optional per TLS abgesichert werden.
+
+    📡 Watchdog- und Keepalive-Mechanismen
+    Unterstützung von MQTT Keepalive, automatischer Reconnect, TCP-Zeitlimits.
+
+2.2. Komponentenübersicht
+
++----------------+      Modbus TCP       +----------------+
+| TCP Client(s)  | <------------------>  |   Gateway       |
+|  (z. B. SCADA) |                      | (modbus_gateway)|
++----------------+                      +--------+--------+
+                                                  |
+                                                  | Serial Line (RTU)
+                                                  |
+                                          +-------+--------+
+                                          | Modbus Slave(s) |
+                                          +-----------------+
+
++------------------------+
+|      MQTT Broker       |  <--- TLS / TCP --->
++------------------------+
+         ▲        ▲
+         |        |
+    +----+    +---+----+
+    | Home |  | Logging |
+    |Assistant etc.     |
+    +-------------------+
+
+2.3. Architekturübersicht
+
+Die Software ist in modularen Komponenten organisiert:
+Komponente	Beschreibung
+main()	Initialisiert Konfiguration, MQTT, Modbus, Server und steuert den Ablauf
+init_config()	Liest INI-Datei und befüllt Config-Struktur
+init_mqtt()	Erstellt MQTT-Client, setzt LWT, TLS, Subscriptions
+init_modbus()	Öffnet und konfiguriert RTU-Schnittstelle
+accept_clients()	Wartet auf eingehende TCP-Verbindungen (Modbus TCP Clients)
+handle_client()	Leitet TCP-Anfragen an RTU weiter, verarbeitet Antworten, implementiert Diagnose
+MQTTCallback	Verarbeitet eingehende MQTT-Nachrichten (lesen/schreiben von Registern & Coils)
+publish_stats()	Periodisch veröffentlichte Metriken (z. B. Fehlerzähler, Uptime, Durchsatz)
+shutdown_gateway()	Beendet sauber alle Threads, MQTT und RTU-Verbindung
+dump_hex()	Optionales Logging von Modbus-Telegrammen (Debugging)
+2.4. Datenfluss-Überblick
+
+Modbus TCP Request
+        ↓
+  handle_client()
+        ↓
+  modbus_send_raw_request() → RTU
+        ↓
+  modbus_receive_confirmation()
+        ↓
+  build_tcp_response()
+        ↓
+   TCP Antwort an Client
+
+MQTT Topic:
+  - write/123  → write_register(123)
+  - read/123   → read_register(123)
+  - read_multi/100:3 → liest 3 Register ab Adresse 100
+        ↓
+  MQTTCallback::message_arrived()
+        ↓
+  modbus_read_*/write_*() → RTU
+        ↓
+  Antwort via MQTT publish()
+
+2.5. Mehrfachschnittstellen
+  
+  Unterstützt mehrere parallele TCP-Clients
+  
+  Unterstützt gleichzeitigen MQTT-Betrieb
+  
+  Alle Komponenten laufen in separaten Threads, gesteuert über eine zentrale run-Flag-Atomik.
+
+3. Konfiguration (modbus_gateway.ini)
+
+Die gesamte Funktionsweise des Gateways wird über eine zentrale .ini-Datei gesteuert. Diese befindet sich standardmäßig unter:
+
+/etc/modbus_gateway.ini
+
+Sie kann jedoch beim Programmstart als Argument übergeben werden:
+
+./modbus_gateway /pfad/zur/datei.ini
+
+3.1. Grundstruktur
+
+[serial]
+port = /dev/ttyAMA0
+baudrate = 9600
+parity = N
+databits = 8
+stopbits = 1
+
+[tcp]
+port = 502
+
+[modbus]
+slave_id = 1
 
 [mqtt]
+broker = tcp://192.168.0.82:1883
+client_id = modbus_gateway
 topic_prefix = modbus/
+username =
+password =
+keepalive = 30
+lwt = offline
+online = online
+use_tls = 0
+ca_file =
+cert_file =
+key_file =
+insecure = 0
+stats_interval = 60
 
-📥 Schreiben
-🧾 Holding Register (16-bit)
+[log]
+file = /var/log/modbus_gateway.log
+hex_dump = 0
+
+3.2. Beschreibung aller Konfigurationsfelder
+[serial]
+Parameter	Bedeutung
+port	Serieller Port (z. B. /dev/ttyUSB0)
+baudrate	Baudrate, z. B. 9600
+parity	Parität: N, E, oder O
+databits	Datenbits: i. d. R. 8
+stopbits	Stopbits: 1 oder 2
+[tcp]
+Parameter	Beschreibung
+port	TCP-Port auf dem das Gateway Modbus TCP-Anfragen entgegennimmt (Default: 502)
+[modbus]
+Parameter	Bedeutung
+slave_id	Default-Slave-ID für MQTT-Anfragen
+[mqtt]
+Parameter	Bedeutung
+broker	MQTT-Broker URI, z. B. tcp://192.168.0.82:1883
+client_id	MQTT Client-ID
+topic_prefix	Präfix für alle Topics, z. B. modbus/
+username	Optional: Benutzername
+password	Optional: Passwort
+keepalive	Keepalive in Sekunden
+lwt	Payload bei Last Will (offline)
+online	Payload bei erfolgreichem Connect (online)
+use_tls	1 = TLS aktivieren, 0 = unverschlüsselt
+ca_file	Pfad zur CA-Datei
+cert_file	Pfad zum Client-Zertifikat
+key_file	Pfad zum privaten Schlüssel
+insecure	1 = Zertifikatsprüfung deaktivieren
+stats_interval	Sekundenintervall zur MQTT-Veröffentlichung von Statistikdaten
+[log]
+Parameter	Bedeutung
+file	Logdatei-Pfad
+hex_dump	1 = Modbus-Pakete als Hexdump loggen (Debug)
+
+
+4. MQTT Topics und Datenstruktur
+
+Das Gateway verwendet ein konsistentes MQTT-Topic-Schema für alle Lese- und Schreiboperationen. Alle Topics beginnen mit dem in der INI-Datei definierten topic_prefix, z. B. modbus/.
+4.1. Unterstützte MQTT-Kommandos
+Operationstyp	Topic-Schema	Beschreibung
+Holding Register lesen	modbus/read/<addr>	Lese Einzelregister
+Holding Register schreiben	modbus/write/<addr>	Schreibe Einzelregister
+Coil lesen	modbus/read_coil/<addr>	Lese Coil (einzelnes Bit)
+Coil schreiben	modbus/write_coil/<addr>	Setze Coil (einzelnes Bit)
+Discrete Input lesen	modbus/read_discrete/<addr>	Lese digitalen Eingang
+Input Register lesen	modbus/read_input/<addr>	Lese analoges Eingangsregister
+Mehrere Holding Register	modbus/read_multi/<start>:<anzahl>	Lese mehrere Holding Register
+Mehrere Input Register	modbus/read_input_multi/<start>:<anzahl>	Lese mehrere Eingangsregister
+Mehrere Coils	modbus/read_coil_multi/<start>:<anzahl>	Lese mehrere Coils
+Mehrere Discrete Inputs	modbus/read_discrete_multi/<start>:<anzahl>	Lese mehrere digitale Eingänge
+Statistik zurücksetzen	modbus/stats/reset	Setzt alle Statistikzähler zurück
+Statistik abrufen	modbus/command/stats	Antwort erscheint in modbus/stats
+4.2. MQTT-Beispiele
+Beispiel 1: Einzelnes Register lesen
+
+Publish:
+
+mosquitto_pub -t modbus/read/100 -n
+
+Antwort (Subscribe auf modbus/read/100):
+
+431
+
+Beispiel 2: Einzelnes Register schreiben
+
+Publish:
+
+mosquitto_pub -t modbus/write/100 -m "123"
+
+Log-Ausgabe:
+
+Modbus-Register 100 gesetzt auf 123
+
+Beispiel 3: Mehrfachregister lesen
+
+Publish:
+
+mosquitto_pub -t modbus/read_multi/100:4 -n
+
+Antwort (Subscribe auf modbus/read_multi/100:4):
+
+431,0,65535,22
+
+Beispiel 4: Coil setzen
+
+mosquitto_pub -t modbus/write_coil/25 -m "1"
+
+Beispiel 5: Discrete Input lesen
+
+mosquitto_pub -t modbus/read_discrete/12 -n
+
+Antwort:
+
+0
+
+4.3. Beispiel: Statistikabfrage
+
+Abfrage:
+
+mosquitto_pub -t modbus/command/stats -n
+
+Antwort:
+
+Statistik (on-demand): TCP=233, RTU=233, Fehler=2, Letzter RTU-Erfolg: 2025-06-26 13:42:17
+
+4.4. Beispiel: Statistik als JSON (automatisch)
+
+Wenn stats_interval > 0, sendet das Gateway regelmäßig:
+
+{
+  "total_tcp_requests": 233,
+  "total_rtu_requests": 233,
+  "total_errors": 2,
+  "rtu_success": 231,
+  "rtu_failures": 2,
+  "dropped": 0,
+  "echo_replies": 0,
+  "last_success_timestamp": 1724701337
+}
+
+Topic: modbus/stats
+
+5. Architektur und Komponenten des Programmcodes
+
+Das Projekt folgt einer strukturierten und modularisierten Architektur, bei der die drei Hauptschnittstellen (Modbus TCP, Modbus RTU, MQTT) klar voneinander getrennt, aber dennoch eng integriert sind.
+5.1. Hauptkomponenten
+Komponente	Beschreibung
+main()	Einstiegspunkt, Initialisierung von Konfiguration, Logging, MQTT, Modbus, TCP-Server
+config_handler()	Parser für die INI-Konfigurationsdatei
+init_mqtt()	Verbindungsaufbau und Subscription zu MQTT
+MQTTCallback	Verarbeitung eingehender MQTT-Kommandos
+init_modbus()	Setup der Modbus-RTU-Verbindung (TTY, Parity, Baudrate etc.)
+start_tcp_server()	Öffnet TCP-Socket und wartet auf eingehende Verbindungen
+accept_clients()	Akzeptiert neue Clients und startet Threads zur Verarbeitung
+handle_client()	Verarbeitung einzelner Modbus-TCP-Anfragen, Weiterleitung an RTU, Rückantwort
+publish_stats()	Periodische Publikation von Statistikdaten via MQTT
+reconnect_mqtt()	Logik zum Wiederherstellen einer unterbrochenen MQTT-Verbindung
+dump_hex()	Optionaler Hexdump für Debugzwecke
+5.2. Datenflussübersicht
+
+        +----------------+
+        |    MQTT-Client |
+        +----------------+
+                |
+                v
+          [MQTTCallback]
+                |
+    +-----------+------------+
+    |                        |
+    v                        v
+Modbus-Write          Modbus-Read
+  (via RTU)              (via RTU)
+    |                        |
+    +-----------+------------+
+                |
+                v
+      Optional: Antwort über MQTT
+
+--------------------------------------------------
+
+        +--------------------+
+        |   TCP-Client (Modbus) |
+        +--------------------+
+                |
+                v
+       [handle_client()]
+                |
+                v
+      Anfrage → RTU via libmodbus
+                |
+                v
+      Antwort ← RTU (PDU)
+                |
+                v
+       → TCP-Antwort mit MBAP-Header
+
+5.3. Thread-Modell
+
+    Main Thread: Initialisierung, Logging, Signalverarbeitung, Start der Komponenten
+
+    MQTT-Thread: Intern durch paho-mqtt verwaltet
+
+    publish_stats(): Separater Hintergrundthread zur periodischen Statistikausgabe
+
+    Client-Threads: Jeder TCP-Client wird in einem eigenen Thread verarbeitet (Modbus TCP → RTU Weiterleitung)
+
+5.4. Protokollkonformität
+
+Die TCP-Antworten werden mit originaler Transaction-ID und rekonstruierter MBAP-Headerstruktur zurückgegeben. Auch lokale Diagnosefunktionen (z. B. Echo-Test 0x08 00 00) werden erkannt und direkt beantwortet.
+5.5. Signalbehandlung
+
+signal(SIGINT, signal_handler);
+signal(SIGTERM, signal_handler);
+
+Ermöglicht sauberen Shutdown bei CTRL+C oder systemd-Stop.
+
+📌 Nächstes Kapitel: Aufbau der INI-Konfiguration und Optionen
+Sag einfach weiter.
+Du:
+weiter
+ChatGPT:
+6. INI-Konfiguration – Aufbau und Optionen
+
+Die Konfiguration des Gateways erfolgt über eine klassische INI-Datei, typischerweise unter dem Pfad:
+
+/etc/modbus_gateway.ini
+
+Diese Datei wird beim Programmstart geparst und beeinflusst alle Schnittstellen (Modbus, MQTT, Logging etc.). Alternativ kann der Pfad übergeben werden:
+
+./modbus_gateway /pfad/zur/konfiguration.ini
+
+6.1. Sektionen und Schlüssel
+[serial] – Modbus-RTU-Schnittstelle
+Schlüssel	Typ	Beschreibung	Beispiel
+port	String	Serielles Interface	/dev/ttyAMA0
+baudrate	int	Baudrate	9600
+parity	char	Parität: N, E, O	N
+databits	int	Datenbits (meist 8)	8
+stopbits	int	Stoppbits (1 oder 2)	1
+[tcp] – Modbus-TCP-Server
+Schlüssel	Typ	Beschreibung	Beispiel
+port	int	TCP-Port, auf dem der Server lauscht	502
+[modbus] – Modbus-spezifische Optionen
+Schlüssel	Typ	Beschreibung	Beispiel
+slave_id	int	Standard-Slave-ID (wird bei TCP-Anfragen überschrieben)	1
+[mqtt] – MQTT-Verbindung
+Schlüssel	Typ	Beschreibung	Beispiel
+broker	String	MQTT-Broker URI	tcp://192.168.0.82:1883
+client_id	String	Client-ID	modbus_gateway
+username	String	Optionaler Username für Authentifizierung	mqttuser
+password	String	Passwort für obigen Benutzer	secrets123
+keepalive	int	KeepAlive-Intervall in Sekunden	30
+topic_prefix	String	Präfix aller Topics	modbus/
+lwt	String	Last Will Payload (offline-Meldung)	offline
+online	String	Payload beim Start (z. B. online)	online
+use_tls	bool	TLS-Verbindung aktivieren	1
+ca_file	String	CA-Zertifikatspfad	/etc/ssl/certs/ca.crt
+cert_file	String	Client-Zertifikat (optional)	/etc/modbus/cert.pem
+key_file	String	Privater Schlüssel zum Client-Zertifikat	/etc/modbus/key.pem
+insecure	bool	Zertifikatsprüfung deaktivieren (unsicher)	1
+stats_interval	int	Intervall für Statistikveröffentlichung in Sekunden	60
+[log] – Logging
+Schlüssel	Typ	Beschreibung	Beispiel
+file	String	Logdatei	/var/log/modbus_gateway.log
+hex_dump	bool	Hexdump aktivieren (1=ja, 0=nein)	1
+6.2. Beispielkonfiguration
+
+[serial]
+port = /dev/ttyAMA0
+baudrate = 9600
+parity = N
+databits = 8
+stopbits = 1
+
+[tcp]
+port = 502
+
+[modbus]
+slave_id = 1
+
+[mqtt]
+broker = tcp://192.168.0.82:1883
+client_id = modbus_gateway
+username = mqttuser
+password = secret
+topic_prefix = modbus/
+keepalive = 30
+lwt = offline
+online = online
+use_tls = 0
+stats_interval = 60
+
+[log]
+file = /var/log/modbus_gateway.log
+hex_dump = 1
+
+7. MQTT-Integration – Topics, Payloads und Beispiele
+
+Das Gateway nutzt MQTT für bidirektionale Kommunikation: Steuerung, Statusmeldungen, Statistiken und Fehlerberichte. Die MQTT-Funktionalität ist vollständig optional und kann per Konfiguration deaktiviert werden.
+7.1. Topic-Übersicht
+Topic	Typ	Beschreibung
+modbus/status	LWT	Verbindungsstatus des Gateways (online / offline)
+modbus/stats	Status	Statistiken als JSON (optional zyklisch)
+modbus/log	Log	Lognachrichten aus dem Gateway
+modbus/read/<type>/<address>	Befehl	Lesezugriff auf Register
+modbus/write/<type>/<address>	Befehl	Schreibzugriff auf Register
+modbus/command/stats	Befehl	Löst sofortige Statistikmeldung aus
+7.2. Registertypen
+Typ (im Topic)	Modbus-Typ	Bedeutung
+coil	Coils	0xxxx: Digitalausgang (1 Bit)
+discrete	Discrete Inputs	1xxxx: Digitaleingang (1 Bit, read-only)
+input	Input Register	3xxxx: Analogeingang (16 Bit, read-only)
+holding	Holding Register	4xxxx: Analoge Ausgangswerte (16 Bit)
+7.3. Leseoperation via MQTT
+
+Beispiel: Ein Holding-Register 40010 lesen.
 
 Topic:
 
-modbus/write/<Adresse>
+modbus/read/holding/10
 
-Payload:
-Ganzzahl (dezimal), z. B. 1234
+Antwort:
 
-Beispiel:
+modbus/response/holding/10
+Payload: 4711
 
-modbus/write/100 → 1234
+7.4. Schreiboperation via MQTT
 
-🔘 Coils (1-bit)
+Beispiel: Schreibe Wert 1234 in Holding-Register 40020.
 
 Topic:
 
-modbus/write_coil/<Adresse>
+modbus/write/holding/20
 
 Payload:
-0 oder 1
 
-Beispiel:
+1234
 
-modbus/write_coil/10 → 1
+Antwort:
 
-📤 Lesen (einzelne Werte)
-📖 Holding Register
+modbus/response/holding/20
+Payload: OK
 
-Topic (Subscribe):
+7.5. Mehrfachoperationen (Batch)
 
-modbus/read/<Adresse>
+Mehrere Register können in einem JSON-Array geschrieben oder gelesen werden.
+Mehrere Holding Register schreiben:
 
-Antwort-Topic (Publish):
-Selbes Topic mit dem gelesenen Wert als Payload.
-📖 Input Register
+Topic:
 
-modbus/read_input/<Adresse>
+modbus/write/holding
 
-📖 Coil
+Payload:
 
-modbus/read_coil/<Adresse>
+{
+  "10": 111,
+  "11": 222,
+  "12": 333
+}
 
-📖 Discrete Input
+Mehrere Coils lesen:
 
-modbus/read_discrete/<Adresse>
+Topic:
 
-📤 Lesen (mehrere Werte)
+modbus/read/coil
 
-Der Doppelpunkt : trennt Startadresse und Anzahl der Werte.
-📚 Holding Register
+Payload:
 
-modbus/read_multi/<Startadresse>:<Anzahl>
+[1, 2, 3, 4]
 
-Beispiel:
+Antwort (z. B. in modbus/response/coil)
 
-modbus/read_multi/100:3 → "111,222,333"
+{
+  "1": 1,
+  "2": 0,
+  "3": 1,
+  "4": 1
+}
 
-📚 Input Register
+7.6. Statistik anfordern
 
-modbus/read_input_multi/<Startadresse>:<Anzahl>
+Topic:
 
-📚 Coils
+modbus/command/stats
 
-modbus/read_coil_multi/<Startadresse>:<Anzahl>
+Payload: (beliebig oder leer)
 
-📚 Discrete Inputs
+Antwort (sofortige Statusmeldung an modbus/stats):
 
-modbus/read_discrete_multi/<Startadresse>:<Anzahl>
+{
+  "tcp_requests": 234,
+  "rtu_success": 231,
+  "rtu_failures": 3,
+  "dropped": 0,
+  "echo_replies": 7
+}
 
-🪵 Logging (nur Ausgabe)
+7.7. Logging
 
 Topic:
 
 modbus/log
 
-Beispiel-Inhalt:
+Beispielhafte Payload:
 
-2025-06-24 20:03:17 - Modbus-Register 100 gesetzt auf 1234
+[2025-06-26 19:33:00] → RTU TX: 01 03 00 00 00 02 65 CB
 
-🧩 Abschnitt 3: Aufbau der Softwarekomponenten und Modulstruktur
+Aktivierung über:
 
-Das Projekt ist vollständig in einer einzigen Datei (modbus_gateway.cpp) implementiert, mit klar getrennten Funktionsbereichen. Alle zentralen Funktionen sind modular aufgebaut, sodass sie leicht erweiterbar oder in eigene Module auslagerbar wären.
-🔄 Hauptkomponenten
-Komponente	Zweck
-main()	Einstiegspunkt, Initialisierung und Start der Haupt-Threads
-init_config()	Einlesen der .ini-Konfigurationsdatei mittels ini.h
-init_mqtt()	Aufbau der MQTT-Verbindung, Abonnieren von Topics
-reconnect_mqtt()	Wiederverbindungs-Logik bei MQTT-Verlust
-init_modbus()	Initialisierung der seriellen Modbus-RTU-Verbindung
-start_tcp_server()	Startet TCP-Server auf Port 502
-accept_clients()	Nimmt Modbus-TCP-Clients entgegen und startet Threads
-handle_client()	Übersetzt Modbus-TCP-Anfragen zu Modbus-RTU
-log()	Lognachrichten schreiben in Datei und (wenn verbunden) per MQTT
-shutdown_gateway()	Aufräumlogik bei Programmende (SIGINT, SIGTERM)
-🧠 Klassenübersicht
-Config
+[log]
+hex_dump = 1
 
-struct Config { ... };
+📌 Nächstes Kapitel: TCP-Client-Schnittstelle & Protokollfluss (Modbus TCP ↔ RTU)
+Sag einfach weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+8. Modbus TCP ↔ RTU – Protokollfluss und Umsetzung
 
-    Enthält alle konfigurierbaren Parameter (MQTT, Modbus, Logging usw.)
+Das Gateway fungiert als Protokollübersetzer: Es empfängt Modbus TCP-Anfragen von Clients, wandelt sie in Modbus RTU um, leitet sie via RS485 weiter und antwortet mit korrekt konstruierten Modbus TCP-Paketen.
+8.1. Ablauf einer TCP-Anfrage
 
-    Wird durch init_config() aus INI-Datei befüllt
+    TCP-Anfrage empfangen
 
-    Zentraler Punkt zur Parametrisierung
+        Das Gateway lauscht auf dem konfigurierten Port (Default: 502).
 
-MQTTCallback
+        modbus_receive() extrahiert MBAP-Header und PDU.
 
-class MQTTCallback : public virtual mqtt::callback
+    MBAP-Header analysieren
 
-    Implementiert connection_lost() und message_arrived()
+        Transaction-ID, Protocol-ID, Length, Unit-ID werden ausgelesen.
 
-    Verarbeitet MQTT-Nachrichten:
+    PDU analysieren
 
-        schreibt/liest Register, Coils, Inputs
+        Der Modbus-Funktionscode bestimmt die Art der Anfrage (z. B. 0x03 = Holding Register lesen).
 
-        unterstützt Einzel- & Mehrfachlese (mit : Syntax)
+        Bei Sonderfunktionen wie 0x08 (Diagnose) erfolgt ggf. lokale Beantwortung.
 
-    Triggert automatische Reconnect-Logik im Fehlerfall
+    RTU-Anfrage vorbereiten
 
-🔁 Thread-Modell
-Thread/Funktion	Aufgabe
-main()	Startpunkt, initialisiert alles
-accept_clients()	Lauscht auf TCP-Port und startet …
-handle_client()	… je einen neuen Thread pro Client
-reconnect_mqtt()	ggf. als separater Thread im Fehlerfall
-modbus_receive()	blockierend, verarbeitet Modbus-TCP
-⚙️ Externe Bibliotheken
-Bibliothek	Verwendung
-libmodbus	Kommunikation via Modbus RTU/TCP
-paho.mqtt.cpp	MQTT-Client (async)
-ini.h (benhoyt/inih)	Konfigurationsdatei (INI-Parser)
-<thread>, <mutex>	Multithreading, Thread-Sicherheit
-<atomic>	Threadsichere Flags, z. B. run, mqttConnecting
+        Die RTU-Nachricht wird durch Voranstellen der Unit-ID an die PDU erzeugt.
 
+        Mit modbus_send_raw_request() über serielle Schnittstelle versendet.
 
-🛠️ Abschnitt 4: Konfigurationsdatei (modbus_gateway.ini)
+    RTU-Antwort empfangen
 
-Das Gateway wird vollständig über eine .ini-Datei konfiguriert, die beim Start angegeben wird oder standardmäßig unter /etc/modbus_gateway.ini gesucht wird.
-🔑 Aufbau der .ini-Datei
+        modbus_receive_confirmation() liest Antwort von Slave.
 
-Die Datei ist in folgende Sektionen unterteilt:
-📦 [serial]
+        Validierung und Fehlerbehandlung erfolgen.
 
-Konfiguration der seriellen RTU-Verbindung zum Modbus-Slave (z. B. Wärmepumpe):
-Schlüssel	Beschreibung	Beispiel
-port	Serieller Port	/dev/ttyAMA0
-baudrate	Baudrate	9600
-parity	Parität (N/E/O)	N
-databits	Anzahl Datenbits	8
-stopbits	Anzahl Stopbits	1
-🌐 [tcp]
+    TCP-Antwort erzeugen
 
-Modbus-TCP-Server, der auf eingehende Verbindungen wartet:
-Schlüssel	Beschreibung	Beispiel
-port	TCP-Port (Standard: 502)	502
-☁️ [mqtt]
+        Neuer MBAP-Header mit Original Transaction-ID + Length wird erzeugt.
 
-MQTT-Kommunikation (z. B. mit Home Assistant oder Node-RED):
-Schlüssel	Beschreibung	Beispiel
-broker	Adresse des MQTT-Brokers	tcp://192.168.0.82:1883
-client_id	MQTT-Client-ID	modbus_gateway
-topic_prefix	Präfix für alle Topics	modbus/
-username	(Optional) Benutzername	mqttuser
-password	(Optional) Passwort	mqttpass
-keepalive	Keep-Alive in Sekunden	30
-lwt	Last Will Payload bei Verbindungsverlust	offline
-online	Payload nach erfolgreicher Verbindung	online
-📜 [log]
+        Die PDU der RTU-Antwort (ohne Slave-ID) wird angefügt.
 
-Logging-Konfiguration:
-Schlüssel	Beschreibung	Beispiel
-file	Pfad zur Logdatei	/var/log/modbus_gateway.log
-🧱 [modbus]
+    TCP-Antwort senden
 
-Modbus-spezifische Parameter:
-Schlüssel	Beschreibung	Beispiel
-slave_id	Modbus-Slave-Adresse (Unit ID)	1
-🧪 Beispielkonfiguration (modbus_gateway.ini)
+        Antwort wird via send() an Client zurückgegeben.
+
+8.2. Lokale Diagnose-Funktionen
+
+Der Funktionscode 0x08 (Diagnose) wird teilweise intern im Gateway bearbeitet, um schnellere Antworten zu ermöglichen:
+Subfunktion	Beschreibung	Gateway-Verhalten
+0x0000	Loopback-Test (Echo)	Antwort lokal erzeugt
+0x000A	Statistikzähler zurücksetzen	Zähler auf 0 setzen
+0x000B	TCP-Anfragen-Zähler zurückgeben	Antwort lokal erzeugt
+0x000C	Fehlerzähler zurückgeben	Antwort lokal erzeugt
+sonstige	Nicht erkannt	Anfrage an RTU weitergeleitet
+8.3. Hex-Debug-Log
+
+Die Funktion dump_hex() erzeugt ein Log in hexadezimaler Form:
+
+dump_hex("→ RTU TX: ", data, len);
+
+Beispielausgabe (in modbus/log):
+
+→ RTU TX: 01 03 00 00 00 02 65 CB
+← RTU RX: 01 03 04 00 0A 00 0B 75 D3
+
+8.4. Verbindungsparameter
+
+In der INI-Datei konfigurierbar:
 
 [serial]
 port = /dev/ttyAMA0
@@ -231,1056 +642,471 @@ parity = N
 databits = 8
 stopbits = 1
 
-[tcp]
-port = 502
-
-[mqtt]
-broker = tcp://192.168.0.82:1883
-client_id = modbus_gateway
-topic_prefix = modbus/
-username = mqttuser
-password = mqttpass
-keepalive = 30
-lwt = offline
-online = online
-
-[log]
-file = /var/log/modbus_gateway.log
-
 [modbus]
 slave_id = 1
 
-📡 Abschnitt 5: Unterstützte MQTT-Topics & Payloads
+8.5. RTU-Zeitverhalten
 
-Das Modbus-Gateway verarbeitet MQTT-Nachrichten zur Steuerung und Abfrage von Modbus-Geräten. Dabei kommen verschiedene Topics und Payload-Formate zum Einsatz.
-🔃 Übersicht der MQTT-Themenstruktur
-Aktion	Topic-Format (Suffix)	Beschreibung
-📥 Register schreiben	write/<address>	Holding Register (einzeln) schreiben
-📥 Coil schreiben	write_coil/<address>	Coil (einzeln) setzen/clearen
-📤 Holding lesen	read/<address>	Holding Register (einzeln) lesen
-📤 Input Register lesen	read_input/<address>	Input Register (einzeln) lesen
-📤 Discrete Input lesen	read_discrete/<address>	Digitaler Eingang (einzeln) lesen
-📤 Coil lesen	read_coil/<address>	Coil (einzeln) lesen
-📤 Holding mehrfach	read_multi/<start>:<count>	Mehrere Holding Register lesen
-📤 Input Register mehrfach	read_input_multi/<start>:<count>	Mehrere Input Register lesen
-📤 Coils mehrfach	read_coil_multi/<start>:<count>	Mehrere Coils lesen
-📤 Discrete Inputs mehrfach	read_discrete_multi/<start>:<count>	Mehrere Discrete Inputs lesen
-📋 Logging	log	Automatisches Logging über MQTT
-📶 Status	status	Online-/Offline-Zustand des Gateways
-🧾 Beispiele für MQTT-Payloads
-🔧 Schreiben
+modbus_set_response_timeout(ctx, 1, 0);  // 1 Sekunde Timeout
 
-Topic:     modbus/write/100
-Payload:   42
-⇒ Schreibt 42 in das Holding Register 100
+Zuverlässige Antwortzeiten hängen stark vom RTU-Slave ab. Typische Roundtrip-Zeiten: 5 – 50 ms.
 
-Topic:     modbus/write_coil/200
-Payload:   1
-⇒ Setzt Coil 200 auf TRUE
+📌 Weiter mit: Systemintegration via systemd, automatischer Start & Logrotate
+Antworte einfach mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+9. Systemintegration: systemd, Autostart & Logging
 
-🔍 Einfaches Lesen
+Damit das Gateway beim Systemstart automatisch ausgeführt wird und sauber verwaltet werden kann, ist eine Integration mit systemd vorgesehen.
+9.1. systemd-Service-Datei
 
-Topic:     modbus/read/100
-⇒ Gateway liest Register 100 und veröffentlicht:
-modbus/read/100 → 42
+Pfad: /etc/systemd/system/modbus_gateway.service
 
-Topic:     modbus/read_input/10
-⇒ modbus/read_input/10 → 305
+[Unit]
+Description=Modbus TCP to RTU + MQTT Gateway
+After=network.target
 
-🔍 Mehrfachlesen
+[Service]
+ExecStart=/usr/local/bin/modbus_gateway /etc/modbus_gateway.ini
+Restart=on-failure
+User=modbus
+Group=modbus
+StandardOutput=append:/var/log/modbus_gateway.log
+StandardError=append:/var/log/modbus_gateway.err
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+LimitNOFILE=65536
 
-Topic:     modbus/read_multi/100:3
-⇒ Antwort: modbus/read_multi/100:3 → 10,20,30
+[Install]
+WantedBy=multi-user.target
 
-Topic:     modbus/read_input_multi/10:2
-⇒ Antwort: modbus/read_input_multi/10:2 → 123,456
+9.2. Benutzer & Rechte
 
-Topic:     modbus/read_coil_multi/5:4
-⇒ Antwort: modbus/read_coil_multi/5:4 → 1,0,1,1
+# Benutzer anlegen (falls noch nicht vorhanden)
+sudo useradd -r -s /usr/sbin/nologin modbus
 
-⚠️ Validierungsregeln
+# Verzeichnisse anlegen
+sudo mkdir -p /var/log
+sudo touch /var/log/modbus_gateway.log
+sudo chown modbus:modbus /var/log/modbus_gateway.log
 
-    Adressen müssen gültige Integer ≥ 0 sein.
+9.3. Aktivieren & Starten
 
-    count beim Mehrfachlesen: 1–125 (Modbus-Grenze).
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable modbus_gateway
+sudo systemctl start modbus_gateway
 
-    Wenn das Topic kein : enthält, wird eine Fehlermeldung erzeugt.
+Statusabfrage:
 
-    Bei MQTT-Verbindungsproblemen wird geloggt, aber nicht abgestürzt.
+sudo systemctl status modbus_gateway
 
-🔁 Abschnitt 6: Interner MQTT-Reconnect und Fehlerbehandlung
+Loganzeige (Live):
 
-Das Gateway besitzt eine robuste Reconnect-Logik für MQTT, um eine möglichst durchgehende Verbindung zum Broker sicherzustellen. Zudem wird jeder relevante Fehler (MQTT oder Modbus) intern geloggt und optional über MQTT publiziert.
-🔌 MQTT-Verbindungsaufbau
+journalctl -u modbus_gateway -f
 
-Beim Start wird die Funktion init_mqtt() aufgerufen:
+9.4. Logrotate-Unterstützung
 
-bool init_mqtt();
+Pfad: /etc/logrotate.d/modbus_gateway
 
-    Erstellt den MQTT-Client (mqtt::async_client)
+/var/log/modbus_gateway.log {
+    rotate 7
+    daily
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
 
-    Setzt Callback-Handler (mqttCb)
+Aktivierung (manuell testen):
 
-    Verbindet zum Broker mit gesetzten Optionen:
+sudo logrotate -f /etc/logrotate.d/modbus_gateway
 
-        keepalive, clean_session, will, Benutzername/Passwort
+9.5. Binary & Pfade
 
-    Veröffentlicht Online-Status (modbus/status → online)
+Standardmäßig wird die Anwendung kompiliert nach:
 
-    Abonniert alle relevanten Topics:
+/usr/local/bin/modbus_gateway
 
-        write/#, read/#, read_coil/#, usw.
-
-🔄 Automatischer Reconnect
-
-Im Falle eines Verbindungsverlusts wird ein Reconnect initiiert:
-
-void connection_lost(const std::string& cause) override;
-
-    Loggt den Verbindungsverlust
-
-    Startet einen neuen Thread mit reconnect_mqtt()
-
-    Verhindert Mehrfach-Reconnects durch std::atomic<bool> reconnecting
-
-    Verwendet die gleichen Verbindungsparameter wie init_mqtt()
-
-    Nach erfolgreicher Verbindung:
-
-        Status → online
-
-        Re-subscriben aller Topics
-
-        Setzen des Callbacks erneut erforderlich
-
-🔒 Schutz vor parallelen Verbindungsversuchen
-
-std::atomic<bool> mqttConnecting = false;
-
-if (mqttConnecting.exchange(true)) return;
-
-    Verhindert doppelte gleichzeitige Verbindungsversuche
-
-    Sicher bei gleichzeitigen Disconnects durch andere Threads
-
-🪵 Logging
-
-Alle Fehler oder Verbindungsprobleme werden zentral geloggt:
-
-void log(const std::string& msg);
-
-    Schreibt die Nachricht ins Logfile (/var/log/modbus_gateway.log)
-
-    Optionales MQTT-Logging auf modbus/log
-
-    Zeitstempel im Format: YYYY-MM-DD HH:MM:SS
-
-🔁 Ablauf bei MQTT-Ausfall
-
-    connection_lost() wird durch Paho-MQTT aufgerufen
-
-    Neuer Thread startet reconnect_mqtt()
-
-    Alle Subscriptions werden erneut eingerichtet
-
-    Status-Topic aktualisiert sich auf „online“
-
-    Falls Reconnect fehlschlägt, wird nach 5 Sekunden erneut versucht
-
-✅ Der Reconnect-Mechanismus ist vollautomatisch und stabilisiert das System auch bei temporären MQTT-Ausfällen, ohne manuelles Eingreifen.
-
-🛠️ Abschnitt 7: Modbus-TCP zu Modbus-RTU Weiterleitung (TCP-Proxy)
-
-Das Gateway fungiert als Modbus-TCP zu Modbus-RTU Proxy: Es nimmt TCP-Verbindungen entgegen, dekodiert die Anfrage, leitet sie per Modbus-RTU weiter und sendet die Antwort zurück.
-🔧 Aufbau der Weiterleitung
-
-Sobald ein TCP-Client sich verbindet, wird ein neuer Thread erzeugt:
-
-void accept_clients();  // Wartet auf neue Verbindungen
-
-→ ruft handle_client(client_sock, rtu_ctx) auf
-🧵 Funktionsweise von handle_client
-
-void handle_client(int client_sock, modbus_t* rtu_ctx);
-
-Ablauf im Thread:
-
-    Initialisierung
-
-        Ein Modbus-TCP-Context (modbus_new_tcp()) wird genutzt, um die TCP-Daten zu dekodieren.
-
-        Socket des Clients wird diesem Kontext zugewiesen: modbus_set_socket(tcp_ctx, client_sock)
-
-    Empfang der Anfrage
-
-int query_len = modbus_receive(tcp_ctx, query);
-
-    Die MBAP-Header werden durch modbus_receive dekodiert.
-
-    query enthält anschließend das Modbus-PDU.
-
-Weiterleitung an RTU
-
-modbus_send_raw_request(rtu_ctx, query, query_len);
-
-    Die Anfrage wird 1:1 per Modbus-RTU über die serielle Schnittstelle gesendet.
-
-Empfang der RTU-Antwort
-
-int res_len = modbus_receive_confirmation(rtu_ctx, response);
-
-Rücksendung an den TCP-Client
-
-    send(client_sock, response, res_len, 0);
-
-    Fehlerbehandlung
-
-        Bei Verbindungsfehlern oder Zeitüberschreitungen wird der Thread beendet.
-
-📌 Besonderheiten
-
-    TCP-Client bleibt während der Transaktion blockierend verbunden.
-
-    Keine parallelen Anfragen pro Client, aber parallele Clients werden durch std::thread unterstützt.
-
-    Modbus-RTU ist sequenziell, aber durch das Kontextkonzept sauber isolierbar.
-
-📁 Beispiel: Modbus TCP zu RTU
-Beispiel-Anfrage (Client via TCP):
-
-    Host sendet Read Holding Register an Adresse 40001.
-
-Intern:
-
-    MBAP-Header entfernt → RTU-Request generiert
-
-    Request per RS485 (z. B. an NIBE-Wärmepumpe) gesendet
-
-    Antwort per RS485 empfangen
-
-    Antwort wird als TCP zurück an den ursprünglichen Client gesendet
-
-✅ Ergebnis: Das System funktioniert als echter Modbus-Gateway – transparent für den Client.
-
-
-🔄 Abschnitt 8: MQTT-Schnittstelle zum Lesen & Schreiben von Modbus-Daten
-
-Das Gateway bietet eine flexible MQTT-API, über die Modbus-Register (Holding, Input), Coils und Discrete Inputs gelesen und geschrieben werden können. Alle Aktionen erfolgen bidirektional (MQTT → RTU & RTU → MQTT).
-🧠 Allgemeines Prinzip
-
-    Lesen (read) → per MQTT-Topic triggern → Antwort auf gleichem Topic
-
-    Schreiben (write) → per MQTT-Topic + Payload → Aktion auf RTU-Bus
-
-Beispiel:
-
-modbus/read/5         → Antwort: 4711
-modbus/write/10       → Payload: 23
-modbus/read_multi/0:3 → Antwort: 12,13,14
-
-📚 Unterstützte Registertypen
-Typ	Modbus-Funktion	MQTT-Topic Prefix
-Holding Register	0x03 Read / 0x06 Write	read/ / write/
-Input Register	0x04	read_input/
-Coil (Bit)	0x01 / 0x05	read_coil/ / write_coil/
-Discrete Input	0x02	read_discrete/
-Mehrfach-Lesen (bulk)	0x01–0x04	*_multi/ (z. B. read_multi/0:5)
-📤 Beispiel: Lesen über MQTT
-Einzelnes Register:
-
-🔁 Senden → Topic: modbus/read/10
-➡️ Antwort → modbus/read/10 mit Payload: 1234
-
-Mehrere Register:
-
-🔁 Senden → Topic: modbus/read_multi/10:3
-➡️ Antwort → modbus/read_multi/10:3 mit Payload: 123,456,789
-
-    Die Antwort erfolgt auf exakt demselben Topic – kompatibel mit MQTT-Subskriptionen.
-
-✍️ Beispiel: Schreiben über MQTT
-Holding Register:
-
-🔁 Topic: modbus/write/11
-📦 Payload: 42
-
-Coil (Bit):
-
-🔁 Topic: modbus/write_coil/4
-📦 Payload: 1
-
-🧩 Verarbeitung in MQTTCallback::message_arrived()
-
-    Prefix-Erkennung mit rfind() (z. B. read/, write/, read_input/)
-
-    Adresse extrahieren (std::stoi aus Topic)
-
-    Payload interpretieren (bei write)
-
-    Lesen / Schreiben über libmodbus
-
-    Antwort als Publish senden
-
-🧪 Gültigkeitsprüfungen
-
-    Bei Mehrfachlese:
-
-        Syntax: addr:count
-
-        Prüfung auf addr >= 0 && count > 0 && count <= 125
-
-    Bei Fehlern:
-
-        Logging über log() mit Fehlermeldung (z. B. modbus_strerror(errno))
-
-🧠 Architekturhinweis
-
-    Die MQTT-Schnittstelle läuft unabhängig vom TCP-Gateway (zwei Wege zum Zugriff).
-
-    Die Verarbeitung ist asynchron (libpaho MQTT + message_arrived Callback).
-
-✅ Ergebnis: Volle MQTT-Integration für Automatisierung via Home Assistant, Node-RED etc.
-
-
-📦 Abschnitt 9: Unterstützung für Mehrfach-Lesen über MQTT (*_multi/ Topics)
-
-Neben dem Lesen einzelner Modbus-Register bietet das Gateway auch die Möglichkeit, mehrere Werte auf einmal zu lesen – ideal für:
-
-    Effizientere Kommunikation
-
-    Reduzierte MQTT-Last
-
-    Kompatibilität mit Visualisierungstools
-
-🔧 Funktionsweise
-
-Die Mehrfachabfrage erfolgt über spezielle MQTT-Topics im Format:
-
-modbus/<typ>_multi/<startadresse>:<anzahl>
-
-Beispiel:
-
-modbus/read_multi/100:4 → liest Holding Register 100 bis 103
-
-🧪 Gültigkeitsprüfung
-
-Vor dem Ausführen der Anfrage wird geprüft:
-
-    : muss enthalten sein
-
-    Startadresse und Anzahl müssen gültige Ganzzahlen sein
-
-    addr ≥ 0, count > 0, count ≤ 125
-
-Ungültige Anfragen führen zu einem Logeintrag, aber keinem Absturz.
-💬 Antwort
-
-Die Antwort wird auf demselben Topic gesendet – mit CSV-Payload:
-
-Topic: modbus/read_multi/100:4
-Payload: 111,112,113,114
-
-🧱 Unterstützte Mehrfach-Typen
-Modbus-Typ	MQTT-Topic-Prefix	libmodbus-Funktion
-Holding Register	read_multi/	modbus_read_registers()
-Input Register	read_input_multi/	modbus_read_input_registers()
-Coils	read_coil_multi/	modbus_read_bits()
-Discrete Inputs	read_discrete_multi/	modbus_read_input_bits()
-🧠 Implementierung (Code-Auszug)
-
-In MQTTCallback::message_arrived() definiert:
-
-auto handle_read_multi = [&](const std::string& prefix, auto read_fn) {
-    if (topic.rfind(prefix, 0) == 0) {
-        std::string addr_str = topic.substr(prefix.length());
-        size_t colon = addr_str.find(':');
-        if (colon == std::string::npos) {
-            log("Fehlerhaftes Topic (kein ':' gefunden) bei Mehrfachlese-Anfrage: " + topic);
-            return;
-        }
-
-        int addr = std::stoi(addr_str.substr(0, colon));
-        int count = std::stoi(addr_str.substr(colon + 1));
-        if (addr < 0 || count <= 0 || count > 125) {
-            log("Ungültige Adress-/Anzahlparameter: addr=" + std::to_string(addr) + ", count=" + std::to_string(count));
-            return;
-        }
-
-        std::vector<uint16_t> values(count);
-        int rc = read_fn(rtu_ctx, addr, count, values.data());
-        if (rc == -1) {
-            log("Fehler beim Lesen von " + topic + ": " + modbus_strerror(errno));
-        } else {
-            std::ostringstream oss;
-            for (int i = 0; i < count; ++i) {
-                if (i > 0) oss << ",";
-                oss << values[i];
-            }
-            mqttClient->publish(topic, oss.str().c_str(), MQTT_QOS, false);
-        }
-    }
-};
-
-Verwendung:
-
-handle_read_multi(config.mqttTopicPrefix + "read_multi/", modbus_read_registers);
-handle_read_multi(config.mqttTopicPrefix + "read_input_multi/", modbus_read_input_registers);
-handle_read_multi(config.mqttTopicPrefix + "read_coil_multi/", modbus_read_bits);
-handle_read_multi(config.mqttTopicPrefix + "read_discrete_multi/", modbus_read_input_bits);
-
-✅ Ergebnis: MQTT-basierte Bulk-Abfragen für alle wichtigen Modbus-Typen – effizient, stabil und flexibel.
-
-
-🧵 Abschnitt 10: Modbus-TCP zu RTU Gateway (TCP-Forwarding)
-
-Das Gateway übernimmt die Rolle eines Brückenservers, der eingehende Modbus-TCP-Anfragen 1:1 an ein RTU-Zielgerät weiterleitet und die Antwort zurückgibt.
-🔁 Ablaufdiagramm
-
-Client (Modbus TCP)
-    |
-    | Modbus TCP (Port 502)
-    v
-Modbus Gateway (Raspberry Pi)
-    |
-    | Weiterleitung als Modbus RTU (über RS485)
-    v
-Zielgerät (z. B. NIBE, Wechselrichter)
-
-⚙️ Ablauf im Code
-
-    TCP-Server starten:
-
-start_tcp_server();
-
-→ Socket an Port 502 wird geöffnet (AF_INET, SOCK_STREAM)
-
-    Clients akzeptieren:
-
-accept_clients();
-
-→ jeder neue Client wird in eigenem Thread mit handle_client(...) verarbeitet
-
-    Verbindung pro Client behandeln:
-
-void handle_client(int client_sock, modbus_t* rtu_ctx);
-
-    Modbus-TCP-Anfrage empfangen (modbus_receive)
-
-    Anfrage als Raw-Request an RTU senden (modbus_send_raw_request)
-
-    Antwort vom RTU empfangen (modbus_receive_confirmation)
-
-    Antwort an TCP-Client senden (send())
-
-    Verbindung schließen bei Fehler oder Disconnect
-
-📜 Beispiel: Weiterleitung
-
-int query_len = modbus_receive(tcp_ctx, query);
-int sent = modbus_send_raw_request(rtu_ctx, query, query_len);
-int res_len = modbus_receive_confirmation(rtu_ctx, response);
-send(client_sock, response, res_len, 0);
-
-🧵 Threadsicherheit
-
-Jeder TCP-Client wird in einem separaten Thread behandelt:
-
-client_threads.emplace_back(handle_client, client_sock, rtu_ctx);
-
-🧠 Hinweis:
-rtu_ctx wird gemeinsam genutzt, ist aber bei libmodbus nicht thread-safe → hier könnte ein Mutex ergänzt werden, wenn paralleler Zugriff auf RTU-Verbindung nötig ist.
-🧹 Aufräumen bei Shutdown
-
-for (auto& t : client_threads) if (t.joinable()) t.join();
-
-🚧 Hinweise für Produktion
-Punkt	Empfehlung
-RTU-Mutex (thread-safe)	optional – wenn paralleler Zugriff erforderlich
-Timeout	bereits gesetzt (modbus_set_response_timeout())
-Max. Clients	aktuell unbeschränkt, evtl. TCP_BACKLOG anpassen
-Port 502	ggf. sudo nötig oder in iptables umleiten
-
-✅ Ergebnis: Das System kann Modbus-TCP-Anfragen vollständig als RTU umsetzen – ideal für klassische HMI/SCADA-Systeme.
-
-
-🧾 Abschnitt 11: Konfigurationsdatei (modbus_gateway.ini)
-
-Das System erlaubt eine vollständige Konfiguration über eine externe INI-Datei, was Anpassungen ohne Neukompilieren ermöglicht.
-📁 Pfad und Aufruf
-
-Standardpfad:
+Konfiguration:
 
 /etc/modbus_gateway.ini
 
-Überschreibbar via Startparameter:
+📌 Weiter mit: Kompilierung, Makefile, Cross-Build für Raspberry Pi OS
+Antworte einfach mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+10. Kompilierung, Deployment und Makefile
 
-./modbus_gateway /pfad/zur/config.ini
+Die Anwendung wird mit g++ unter Linux kompiliert. Für den Einsatz auf einem Raspberry Pi (z. B. Pi 5 mit Raspberry Pi OS 64 Bit) kann nativ oder per Cross-Compile gebaut werden.
+10.1. Makefile für native Kompilierung (z. B. auf dem Raspberry Pi)
 
-🧩 INI-Parsing mit ini.h
+Pfad: Makefile
 
-Verwendete Bibliothek: inih
-Einfache Callback-basierte INI-Verarbeitung.
+TARGET = modbus_gateway
+SRC = modbus_gateway.cpp ini.c
+CXXFLAGS = -Wall -O2 -std=c++17 -I/usr/local/include
+LDFLAGS = -L/usr/local/lib -lmodbus -lpaho-mqttpp3 -lpaho-mqtt3as -lpthread
 
-Parser-Funktion:
+.PHONY: all clean install
 
-int config_handler(void* user, const char* section, const char* name, const char* value);
+all: $(TARGET)
 
-→ Wird für jedes [section] key=value Triplet aufgerufen.
+$(TARGET): $(SRC)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-Zuweisung über:
+install: $(TARGET)
+	install -m 755 $(TARGET) /usr/local/bin/$(TARGET)
+	install -m 644 modbus_gateway.service /etc/systemd/system/modbus_gateway.service
 
-#define MATCH(s, n) strcmp(section, s) == 0 && strcmp(name, n) == 0
+clean:
+	rm -f $(TARGET)
 
-📚 Konfigurierbare Parameter
-Sektion	Parameter	Beschreibung
-[serial]	port	Serielle Schnittstelle (z. B. /dev/ttyAMA0)
-	baudrate	Baudrate für RS485-Verbindung
-	parity	N, E, O (Keine, Gerade, Ungerade)
-	databits	Meist 8
-	stopbits	Meist 1
-[modbus]	slave_id	Modbus-Adresse des RTU-Slave
-[tcp]	port	TCP-Port für Modbus-TCP (Standard: 502)
-[mqtt]	broker	MQTT-Broker-Adresse (z. B. tcp://192.168.0.82:1883)
-	client_id	Client-ID im Broker
-	topic_prefix	Prefix für alle MQTT-Themen (z. B. modbus/)
-	username	(optional) Benutzername für MQTT
-	password	(optional) Passwort
-	keepalive	Keepalive-Intervall in Sekunden
-	lwt	Payload bei Verbindungsverlust
-	online	Payload nach erfolgreicher Verbindung
-[log]	file	Pfad zur Log-Datei (z. B. /var/log/modbus.log)
-⚙️ Initialisierung im Code
+Build & Install:
 
-bool init_config(int argc, char* argv[], bool& dry_run) {
-    const char* config_path = "/etc/modbus_gateway.ini";
-    if (argc > 1 && std::string(argv[1]) != "--dry-run") config_path = argv[1];
-    if (ini_parse(config_path, config_handler, &config) < 0) {
-        log("Konnte Konfiguration nicht laden, nutze Defaults.");
-        return false;
-    }
-    return true;
-}
+make
+sudo make install
 
-Optionaler Modus --dry-run unterdrückt MQTT & Modbus Start.
-💡 Vorteile
+10.2. Cross-Kompilierung für Raspberry Pi OS (aarch64)
 
-✅ Keine Neukompilierung bei Anpassungen
-✅ Trennung von Code und Systemparametern
-✅ Erweiterbar um weitere Parameter bei Bedarf
+toolchain-aarch64.cmake (für CMake-Nutzung – optional):
 
+SET(CMAKE_SYSTEM_NAME Linux)
+SET(CMAKE_SYSTEM_PROCESSOR aarch64)
 
-⚠️ Abschnitt 12: Signalverarbeitung & sicherer Shutdown
+SET(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+SET(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
 
-Dieser Abschnitt behandelt die Absicherung gegen abrupte Programmabbrüche (z. B. durch Strg+C, kill, systemd) und sorgt für:
+SET(CMAKE_FIND_ROOT_PATH /usr/aarch64-linux-gnu)
 
-    geordnetes Herunterfahren
+Alternativ, für manuelle Cross-Compile:
 
-    Schließen aller Sockets, Verbindungen & Threads
+aarch64-linux-gnu-g++ -std=c++17 -O2 \
+  -I/usr/local/include -L/usr/local/lib \
+  -o modbus_gateway modbus_gateway.cpp ini.c \
+  -lmodbus -lpaho-mqttpp3 -lpaho-mqtt3as -lpthread
 
-    Vermeidung von Datei-/Modbus-Korruption
+10.3. Verzeichnisstruktur (empfohlen)
 
-🚦 Signalbehandlung (SIGINT, SIGTERM)
+modbus_gateway/
+├── Makefile
+├── modbus_gateway.cpp
+├── ini.c
+├── ini.h
+├── modbus_gateway.service
+├── modbus_gateway.ini.example
+├── README.md
 
-Im main():
+10.4. Release-Archiv (optional)
 
-signal(SIGINT, signal_handler);
-signal(SIGTERM, signal_handler);
+Erstellen eines Archivs:
 
-Registriert das benutzerdefinierte Callback:
+tar czf modbus_gateway.tar.gz modbus_gateway/
 
-void signal_handler(int) {
-    run = false;
-    if (server_sock != -1)
-        shutdown(server_sock, SHUT_RDWR);
-    log("Beende Gateway durch Signal...");
-}
+Bereitstellen auf GitHub oder lokal per scp auf den Ziel-Raspberry Pi kopieren:
 
-Wirkung:
+scp modbus_gateway.tar.gz pi@raspberrypi:/home/pi/
 
-    run wird auf false gesetzt → alle Schleifen (z. B. while (run)) beenden sich kontrolliert.
+📌 Weiter mit: Beispiele für MQTT und Modbus TCP Integration
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+11. Beispiele für MQTT und Modbus TCP Integration
 
-    server_sock wird aktiv per shutdown() geschlossen → unterbricht ggf. accept().
-
-🛑 Geordneter Shutdown: shutdown_gateway()
-
-Wird ganz am Ende aufgerufen, z. B. nach Beendigung von accept_clients() oder in --dry-run.
-
-void shutdown_gateway() {
-    for (auto& t : client_threads)
-        if (t.joinable()) t.join();  // Verbindungen sauber beenden
-
-    if (mqttClient && mqttClient->is_connected()) {
-        mqttClient->publish(config.mqttTopicPrefix + "status", config.mqttLwtPayload.c_str(), MQTT_QOS, true);
-        mqttClient->disconnect()->wait();
-    }
-
-    if (rtu_ctx) {
-        modbus_close(rtu_ctx);
-        modbus_free(rtu_ctx);
-    }
-
-    if (server_sock != -1)
-        close(server_sock);
-
-    log("Gateway beendet");
-    logFile.close();
-}
-
-💡Was wird sichergestellt?
-Ressource	Aktion bei Shutdown
-Modbus-RTU Kontext	modbus_close() + modbus_free()
-MQTT Verbindung	disconnect() + LWT-Publish
-TCP-Clients	Alle Threads werden gejoined
-Log-Datei	Wird ordnungsgemäß geschlossen
-🔄 Wiederverwendbarkeit
-
-Diese Mechanik schützt auch bei Konfigurationsfehlern, MQTT-Fehlschlägen oder ungültiger Modbus-Verbindung.
-
-
-📄 Abschnitt 13: MQTT-Integration – Subscriptions & Payload-Formate
-
-Die MQTT-Anbindung ist ein zentrales Feature des Gateways, um Modbus-Geräte flexibel über ein Netzwerkprotokoll zu steuern und zu überwachen.
-📥 Unterstützte MQTT-Topics (Eingehend)
-
-Das Gateway abonniert folgende MQTT-Topics und reagiert darauf:
-Topic-Pattern	Beschreibung	Beispiel
-modbus/write/<addr>	Schreibe Holding Register	modbus/write/123
-modbus/write_coil/<addr>	Schreibe Coil (0/1)	modbus/write_coil/5
-modbus/read/<addr>	Lese Holding Register (1 Wort)	modbus/read/10
-modbus/read_coil/<addr>	Lese Coil (1 Bit)	modbus/read_coil/7
-modbus/read_discrete/<addr>	Lese Discrete Input	modbus/read_discrete/14
-modbus/read_input/<addr>	Lese Input Register	modbus/read_input/300
-modbus/read_multi/<start>:<anzahl>	Lese mehrere Holding Register	modbus/read_multi/100:4
-modbus/read_input_multi/<start>:<anzahl>	Lese mehrere Input Register	modbus/read_input_multi/200:6
-modbus/read_coil_multi/<start>:<anzahl>	Lese mehrere Coils	modbus/read_coil_multi/0:8
-modbus/read_discrete_multi/<start>:<anzahl>	Lese mehrere Discrete Inputs	modbus/read_discrete_multi/20:3
-
-    Alle Adressen sind dezimal. Beim multi-Lesen trennt ein : die Startadresse und Anzahl.
-
-🧾 Payload-Formate
-1. write-Topics
-
-Payload: eine Ganzzahl (z. B. 123 oder 0/1)
-
-modbus/write/42
-Payload: 5678
-→ schreibt Holding Register 42 mit 5678
-
-2. read-Topics
-
-Payload: leer
-→ Antwort erfolgt als MQTT-Publish mit gleichem Topic.
-
-modbus/read/10
-→ Antwort: "4321" (Holding Register 10)
-
-modbus/read_input_multi/300:3
-→ Antwort: "10,20,30"
-
-📤 Ausgehende MQTT-Publishs (Antworten / Logs)
-Topic	Inhalt
-modbus/log	Lognachrichten (Info, Fehler etc.)
-modbus/status	"online" / "offline"
-alle eingehenden read-Topics	Modbus-Werte (Antworten)
-
-Beispiel:
-
-Topic: modbus/read/42
-Payload: 1234
-
-Topic: modbus/read_coil_multi/0:4
-Payload: 1,0,0,1
-
-📌 Besonderheiten
-
-    Alle MQTT-Topics sind konfigurierbar via mqtt.topic_prefix
-
-    Subscriptions werden nach jedem Reconnect erneut gesetzt
-
-    Last Will Topic (status) meldet "offline" bei Verbindungsverlust
-
-
-📄 Abschnitt 14: Modbus-TCP → Modbus-RTU Proxy-Funktion
-
-Dieses Gateway agiert als Brücke zwischen einem Modbus-TCP-Master (z. B. SCADA, HMI oder SPS) und einem Modbus-RTU-Slave-Gerät (z. B. Wärmepumpe, Sensor etc.).
-🔁 Ablauf: TCP-zu-RTU-Weiterleitung
-
-    Modbus-TCP-Client verbindet sich mit dem Gateway auf Port 502 (oder konfigurierbar).
-
-    Das Gateway empfängt ein vollständiges Modbus-TCP-Request-Paket.
-
-    Es extrahiert den PDU-Teil (Protokolldaten) aus dem TCP-Frame.
-
-    Die PDU wird eins-zu-eins per Modbus-RTU über die serielle Schnittstelle weitergeleitet.
-
-    Die Antwort vom RTU-Slave wird empfangen und verpackt in ein Modbus-TCP-Frame.
-
-    Die Antwort wird an den TCP-Client zurückgesendet.
-
-⚙️ Technische Umsetzung
-
-modbus_t* tcp_ctx = modbus_new_tcp(NULL, 0);
-modbus_set_socket(tcp_ctx, client_sock);
-
-int query_len = modbus_receive(tcp_ctx, query);
-int sent = modbus_send_raw_request(rtu_ctx, query, query_len);
-int res_len = modbus_receive_confirmation(rtu_ctx, response);
-
-send(client_sock, response, res_len, 0);
-
-    Dabei wird nur die minimale Puffer- und Umsetzungslogik verwendet – der Fokus liegt auf schneller Durchleitung.
-
-🧵 Parallele TCP-Clients
-
-    Jeder TCP-Client wird in einem eigenen Thread verarbeitet.
-
-    Alle Verbindungen teilen sich die eine serielle RTU-Leitung (Synchronisation erfolgt durch libmodbus).
-
-    Anzahl gleichzeitiger Clients begrenzt durch Systemressourcen und die Einstellung TCP_BACKLOG.
-
-🧪 Beispiel: Modbus TCP Client (z. B. modpoll)
-
-modpoll -m tcp -t 4 -r 100 -c 2 192.168.1.50
-
-→ liest 2 Holding Register ab Adresse 100 vom RTU-Slave hinter dem Gateway
-📌 Hinweise
-
-    Es wird kein Mapping oder Konvertierung vorgenommen – die PDU bleibt unverändert.
-
-    Der RTU-Slave ist über die in modbus_slave_id konfigurierte ID erreichbar.
-
-    Alle Fehler (Sende-/Empfangsfehler) werden per Logfile und MQTT-Log gemeldet.
-
-
-🧠 Abschnitt 15: Fehlerbehandlung und Logging-Strategie
-
-Das Gateway besitzt eine durchgängige Fehlerbehandlung, gekoppelt mit einem Dual-Logging-System:
-→ Dateilog + MQTT-Logmeldung
-🛠 Fehlerbehandlung im Code
-Allgemeines Prinzip
-
-    Jeder relevante Rückgabewert (z. B. bei modbus_*(), socket(), connect()) wird geprüft.
-
-    Im Fehlerfall erfolgt:
-
-        🧾 Ein Eintrag im Logfile (zeitgestempelt)
-
-        📡 Optional ein MQTT-Log über modbus/log
-
-🔐 Beispiele
-Modbus RTU initialisieren
-
-if (!rtu_ctx) {
-    log("Fehler beim Öffnen der seriellen Schnittstelle: " + std::string(modbus_strerror(errno)));
-}
-
-MQTT reconnect fehlgeschlagen
-
-log("MQTT-Reconnect fehlgeschlagen: " + std::string(e.what()));
-
-MQTT-Parsing-Fehler
-
-log("Fehlerhaftes Topic (kein ':' gefunden) bei Mehrfachlese-Anfrage: " + topic);
-
-🧾 Logging in Datei
-
-    Standardpfad: /var/log/modbus_gateway.log
-
-    Konfigurierbar über INI: [log] file = /pfad/zur/logdatei.log
-
-    Log-Einträge enthalten Zeitstempel:
-
-2025-06-24 13:42:17 - MQTT-Verbindung verloren: ...
-2025-06-24 13:42:22 - MQTT-Reconnect erfolgreich
-
-📡 Logging via MQTT
-
-    Wenn verbunden, werden Logmeldungen zusätzlich an den Topic modbus/log gesendet.
-
-    Beispiel für externe Überwachung per Node-RED:
-
-    Topic: modbus/log
-    Payload: Fehler beim Lesen Input Register 3012: Input/output error
-
-🧠 Vorteile
-
-    Doppelte Absicherung bei Fehlersuche
-
-    Ermöglicht Integration in Monitoring-Systeme (Node-RED, Grafana, etc.)
-
-    Zentrale Informationsquelle für Debugging
-
-
-⚙️ Abschnitt 16: Konfiguration über INI-Datei
-
-Das Gateway liest seine Startparameter aus einer einfachen .ini-Konfigurationsdatei. Dies ermöglicht eine flexible und benutzerfreundliche Anpassung des Systems – ohne Neukompilierung.
-📄 Aufbau der Datei
-
-Die Standard-Konfigurationsdatei liegt unter:
-
-/etc/modbus_gateway.ini
-
-Sie ist nach Sektionen gegliedert ([section]) und enthält einfache Schlüssel-Wert-Paare (key = value).
-🔧 Unterstützte Konfigurationsoptionen
-[serial] – Modbus RTU Einstellungen
-Schlüssel	Beschreibung	Beispiel
-port	Serielle Schnittstelle	/dev/ttyAMA0
-baudrate	Baudrate	9600
-parity	Parität (N, E, O)	N
-databits	Anzahl Datenbits	8
-stopbits	Anzahl Stopbits	1
-[tcp] – Modbus TCP Server
-Schlüssel	Beschreibung	Beispiel
-port	Port für TCP Server	502
-[modbus] – Allgemeines Modbus
-Schlüssel	Beschreibung	Beispiel
-slave_id	Standard-Slave-ID für RTU	1
-[mqtt] – MQTT-Einstellungen
-Schlüssel	Beschreibung	Beispiel
-broker	MQTT-Broker-Adresse	tcp://192.168.0.82:1883
-client_id	MQTT-Client-ID	modbus_gateway
-topic_prefix	Präfix für Topics	modbus/
-username	(Optional) MQTT-Username	user1
-password	(Optional) MQTT-Passwort	geheim
-keepalive	Keep-Alive-Zeit in Sekunden	30
-lwt	Payload bei Verbindungsverlust	offline
-online	Payload nach erfolgreicher Verbindung	online
-[log] – Logging
-Schlüssel	Beschreibung	Beispiel
-file	Pfad zur Logdatei	/var/log/modbus_gateway.log
-🔍 Validierung
-
-Die Datei wird beim Start durch ini_parse() geladen. Ungültige oder fehlende Felder führen nicht zum Abbruch, sondern es werden Defaults verwendet. (Log-Eintrag wird erzeugt.)
-🧪 Spezial-Optionen beim Start
-
-Beim Start kann eine alternative INI-Datei übergeben werden:
-
-./modbus_gateway /pfad/zur/anderen.ini
-
-Oder für Testzwecke:
-
-./modbus_gateway --dry-run
-
-📡 Abschnitt 17: MQTT Topics & Topic-Struktur
-
-Das Gateway verwendet MQTT zur Kommunikation mit anderen Systemen (z. B. Node-RED, Home Assistant, Grafana). Die Struktur ist bewusst einfach und lesbar gehalten, sodass sie auch mit einfachen MQTT-Tools (z. B. mosquitto_pub) genutzt werden kann.
-🔁 MQTT-Basisstruktur
-
-Alle Topics beginnen mit einem konfigurierbaren Präfix (Standard: modbus/) – definiert über:
-
-[mqtt]
-topic_prefix = modbus/
-
-📝 Übersicht der verfügbaren Topics
-Topic	Aktion	Beschreibung
-modbus/status	(intern)	Verbindungsstatus (online/offline)
-modbus/log	(intern)	Laufende Log-Meldungen
-modbus/write/1234	Publish	Schreibe Holding Register 1234 mit Payload (int)
-modbus/read/1234	Publish	Lese Holding Register 1234 → Antwort auf gleichem Topic
-modbus/write_coil/45	Publish	Schreibe Coil 45 (0 oder 1)
-modbus/read_coil/45	Publish	Lese Coil 45 → Antwort auf gleichem Topic
-modbus/read_input/200	Publish	Lese Input Register 200 → Antwort auf gleichem Topic
-modbus/read_discrete/12	Publish	Lese Discrete Input 12 → Antwort auf gleichem Topic
-modbus/read_multi/100:4	Publish	Lese Holding Register 100–103, CSV-Antwort auf gleichem Topic
-modbus/read_input_multi/300:2	Publish	Lese Input Register 300–301, CSV-Antwort
-modbus/read_coil_multi/20:8	Publish	Lese Coils 20–27, CSV-Antwort
-modbus/read_discrete_multi/5:5	Publish	Lese Discrete Inputs 5–9, CSV-Antwort
-🧪 Beispiel: Schreiben eines Registerwerts
+Dieses Kapitel zeigt praxisnahe Beispiele zur Nutzung des Gateways mit MQTT und Modbus TCP. Zielgruppe sind Integratoren, die das Gateway z. B. mit Node-RED, Home Assistant oder eigenen Automatisierungen einsetzen.
+11.1. MQTT Beispiele
+📥 Schreiben eines Holding Registers
 
 mosquitto_pub -t modbus/write/100 -m 42
 
-→ schreibt den Wert 42 in Register 100.
-🧪 Beispiel: Lesen mehrerer Register
+➡️ Setzt das Modbus-Holding-Register 100 auf den Wert 42.
+📤 Lesen eines Holding Registers
 
-mosquitto_pub -t modbus/read_multi/200:3 -n
+mosquitto_pub -t modbus/read/100 -n
 
-→ liest Register 200, 201, 202
-← Antwort als: 23,0,98 auf Topic modbus/read_multi/200:3
-🧪 Beispiel: Lesen eines Coils
+📬 Das Gateway antwortet mit:
 
-mosquitto_pub -t modbus/read_coil/15 -n
+Topic: modbus/read/100
+Payload: 42
 
-← Antwort: 0 oder 1
-❗ Hinweis zur Topic-Form
+📥 Schreiben eines Coils (Schaltbefehl)
 
-    Lesebefehle (read*, read_multi*) werden nur durch Veröffentlichung auf dem Topic ausgelöst.
+mosquitto_pub -t modbus/write_coil/12 -m 1
 
-    Antwort erfolgt auf demselben Topic als Payload.
+➡️ Schaltet Coil 12 auf ON.
+📤 Lesen eines Coils
 
-    Schreibbefehle (write*) erwarten einen gültigen Integer- oder Bool-Payload.
+mosquitto_pub -t modbus/read_coil/12 -n
 
+📬 Antwort:
 
-🧠 Abschnitt 18: MQTT Reconnect-Logik & Stabilität
+Topic: modbus/read_coil/12
+Payload: 1
 
-Damit das Gateway auch bei Netzwerkproblemen oder MQTT-Server-Neustarts zuverlässig arbeitet, wurde eine robuste Reconnect-Strategie umgesetzt.
-💡 Grundidee
+🧪 Mehrfachlesen von Holding- oder Input-Registries
 
-    Der MQTT-Client wird bei Verbindungsverlust automatisch neu verbunden.
+mosquitto_pub -t modbus/read_multi/200:4 -n
 
-    Dabei werden Subscriptions und Callbacks erneut gesetzt.
+➡️ Liest 4 Werte ab Adresse 200.
 
-    Parallele Reconnects werden verhindert.
+Antwort:
 
-🔧 Wichtige Komponenten
-🔁 Reconnect-Thread
+Topic: modbus/read_multi/200:4
+Payload: 122,456,789,0
 
-void reconnect_mqtt() {
-    if (mqttConnecting.exchange(true)) return;  // 🔒 verhindert Doppelstart
+🛠 Statistik manuell abrufen
 
-    while (run) {
-        try {
-            // Verbindung mit Optionen (inkl. LWT etc.)
-            mqttClient->connect(connOpts)->wait();
-            log("MQTT-Reconnect erfolgreich");
+mosquitto_pub -t modbus/command/stats -n
 
-            // Callback und Topics erneut setzen
-            mqttClient->set_callback(mqttCb);
-            mqttClient->publish(config.mqttTopicPrefix + "status", config.mqttOnlinePayload, MQTT_QOS, true);
-            mqttClient->subscribe(config.mqttTopicPrefix + "write/#", MQTT_QOS)->wait();
-            mqttClient->subscribe(config.mqttTopicPrefix + "read/#", MQTT_QOS)->wait();
+Antwort:
 
-            break;
-        } catch (...) {
-            log("MQTT-Reconnect fehlgeschlagen, erneuter Versuch in 5s...");
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-        }
-    }
+Topic: modbus/stats
+Payload: Statistik (on-demand): TCP=1234, RTU=1229, Fehler=5, Letzter RTU-Erfolg: 2025-06-26 12:12:59
 
-    mqttConnecting = false;
-}
+🔁 Statistik automatisch alle X Sekunden
 
-📉 Automatischer Reconnect bei Verbindungsverlust
+Wenn in der INI definiert:
 
-Die MQTTCallback-Klasse reagiert auf connection_lost():
+[mqtt]
+stats_interval = 60
 
-void connection_lost(const std::string& cause) override {
-    log("MQTT-Verbindung verloren: " + cause);
-    static std::atomic<bool> reconnecting = false;
-    if (!reconnecting.exchange(true)) {
-        std::thread([] {
-            reconnect_mqtt();
-            reconnecting = false;
-        }).detach();
-    }
-}
+Dann sendet das Gateway regelmäßig an:
 
-➡️ Wichtig: std::atomic<bool> verhindert parallele Threads.
-✅ Vorteile der Lösung
+Topic: modbus/stats
+Payload: {"total_tcp_requests":1234, "total_rtu_requests":1229, ...}
 
-    Keine doppelten Verbindungsversuche
+🔄 Zurücksetzen der Statistikzähler
 
-    Subscriptions und Callback werden garantiert wiederhergestellt
+mosquitto_pub -t modbus/stats/reset -n
 
-    Funktioniert stabil bei:
+11.2. Modbus TCP Beispiele
 
-        Neustart des MQTT-Brokers
+Verbindung z. B. mit mbpoll herstellen:
 
-        Netzwerkunterbrechung
+mbpoll -m tcp -a 1 -t 3 -r 100 -c 2 127.0.0.1
 
-        Stromausfall auf Broker-Seite
+Erklärung:
 
-🧪 Testen
+    -m tcp: TCP-Modus
 
-    Broker neu starten → Verbindung wird automatisch wiederhergestellt.
+    -a 1: Slave-ID
 
-    Netzwerk trennen und reconnecten → MQTT wird neu verbunden.
+    -t 3: Holding Register
 
-    mosquitto_sub auf modbus/status → "offline" → "online"
+    -r 100: Startadresse 100
 
+    -c 2: 2 Register lesen
 
-🗂️ Abschnitt 19: Logging (Dateiausgabe & MQTT)
+    127.0.0.1: Gateway-Adresse
 
-Das Gateway führt detailliertes Logging durch – sowohl lokal in eine Datei als auch optional über MQTT, damit der Systemstatus jederzeit überwachbar ist.
-📝 Zentrale Logfunktion
+Antwort (wenn erfolgreich):
 
-void log(const std::string& msg) {
-    std::lock_guard<std::mutex> lock(logMutex);
-    auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    logFile << std::put_time(std::localtime(&now), "%F %T") << " - " << msg << std::endl;
+[1]: 42
+[2]: 81
 
-    if (mqttClient && mqttClient->is_connected()) {
-        mqttClient->publish(config.mqttTopicPrefix + "log", msg.c_str(), MQTT_QOS, false);
-    }
-}
+11.3. Node-RED Integration (Beispiel)
 
-Merkmale:
+Subscribe Node:
 
-    Thread-sicher durch std::mutex
+    Topic: modbus/read/100
 
-    Zeitstempel im Format YYYY-MM-DD HH:MM:SS
+    Empfängt: Registerwert
 
-    Ausgabe:
+Inject Node:
 
-        📁 Log-Datei (Pfad per INI konfigurierbar)
+    Topic: modbus/write/100
 
-        📡 MQTT-Topic: modbus/log
+    Payload: 123
 
-📂 Konfigurierbarer Pfad
+➡️ Damit kann Node-RED Modbus-Werte setzen und auslesen – ideal für Automatisierung.
+
+📌 Weiter mit Kapitel 12: Fehlerbehandlung und Debugging
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+12. Fehlerbehandlung und Debugging
+
+Diese Sektion beschreibt, wie Fehler im Gateway erkannt, protokolliert und im Idealfall behoben werden können. Sie hilft sowohl Entwicklern als auch Integratoren, Probleme schneller zu analysieren.
+12.1. Fehlerquellen im Überblick
+Fehlerquelle	Typische Ursache	Lösungsvorschlag
+Modbus RTU Timeout	Kein Gerät antwortet auf Anfrage	Baudrate, Parity, Slave-ID prüfen
+MQTT Fehler	Broker nicht erreichbar oder Zertifikatfehler	MQTT-Konfiguration prüfen
+TCP Fehler	TCP-Client unterbricht Verbindung	Normal bei Verbindungsende, ggf. loggen
+INI-Fehler	Syntaxfehler oder Pfad nicht vorhanden	Pfad & Format prüfen, /etc/modbus_gateway.ini
+Berechtigungen	Zugriff auf /dev/ttyAMA0 oder Log-Datei verweigert	Benutzer zur dialout-Gruppe hinzufügen
+12.2. Logging
+
+Alle Ereignisse werden sowohl…
+
+    lokal in die Logdatei (/var/log/modbus_gateway.log) geschrieben
+
+    optional zusätzlich via MQTT an den Topic modbus/log gesendet
+
+Beispieleintrag:
+
+2025-06-26 20:31:17 - Fehler beim Lesen von Modbus-Register 100: Input/output error
+
+💡 Die Logdatei ist das erste Mittel zur Fehleranalyse.
+12.3. Hex-Dump Debugging
+
+Aktivierung per INI-Datei:
 
 [log]
-file = /var/log/modbus_gateway.log
+hex_dump = 1
 
-Wird über config_handler() eingelesen und bei Start geöffnet:
+Dann erscheinen z. B. solche Zeilen im Log/MQTT:
 
-logFile.open(config.logFilePath, std::ios::app);
+→ RTU TX: 01 03 00 64 00 01 85 D4
+← RTU RX: 01 03 02 00 2A B8 44
 
-🚨 Verwendung im Code
+Diese geben Aufschluss über den exakten Modbus-Datenverkehr.
+12.4. Diagnostik via Modbus Diagnosefunktion (0x08)
 
-    Startup: log("Starte Gateway...");
+Der TCP-Client kann spezielle Subfunktionen senden:
+Subfunktion	Bedeutung	Reaktion des Gateways
+0x0000	Echo-Test	Antwortet direkt lokal (Loopback)
+0x000A	Statistikzähler zurücksetzen	Zähler wie total_tcp_requests auf 0 setzen
+0x000B	Anzahl TCP-Requests zurückgeben	2-Byte Antwort mit aktuellem Zählerstand
+0x000C	Anzahl Fehler zurückgeben	2-Byte Antwort mit Fehlerzähler
 
-    Fehlerzustände: z. B. bei Verbindungsabbrüchen, Lesefehlern
+Diese sind ideal für externe Überwachungssoftware.
+12.5. MQTT-Statistik und Diagnosedaten
 
-    Aktivitäten: z. B. wenn ein Client verbunden oder getrennt wird, MQTT-Reconnects usw.
+Alle Zählerwerte sind im Topic modbus/stats enthalten, z. B.:
 
-    Modbus-Aktionen: Lese-/Schreibvorgänge mit Adresse und Ergebnis
+{
+  "total_tcp_requests": 156,
+  "total_rtu_requests": 154,
+  "total_errors": 2,
+  "rtu_success": 154,
+  "rtu_failures": 0,
+  "dropped": 0,
+  "echo_replies": 1,
+  "last_success_timestamp": 1719414809
+}
 
-🔍 Beispielausgabe
+Erlaubt grafische Auswertungen (z. B. in Grafana oder Node-RED Dashboard).
+12.6. Erhöhte Fehlertoleranz
 
-2025-06-24 14:03:25 - Starte Gateway...
-2025-06-24 14:03:25 - Modbus RTU initialisiert
-2025-06-24 14:04:10 - Modbus-Register 300 gesetzt auf 42
-2025-06-24 14:04:11 - MQTT-Verbindung verloren: Connection reset
-2025-06-24 14:04:16 - MQTT-Reconnect erfolgreich
+Das Gateway bricht TCP-Verbindungen nicht sofort bei jedem Fehler ab, sondern erlaubt z. B.:
 
-📡 MQTT-Log-Nutzung
+    mehrere fehlerhafte RTU-Kommunikationen nacheinander
 
-Mit Tools wie mosquitto_sub kannst du das Gateway remote überwachen:
+    leer empfangene TCP-Pakete → werden ignoriert
 
-mosquitto_sub -t modbus/log -h 192.168.0.82
+    Verbindungsabbrüche → sauberer Cleanup im shutdown_gateway()
 
-In Node-RED kannst du mqtt in → debug oder text area verwenden, um Logmeldungen anzuzeigen.
-✅ Vorteile
+📌 Weiter mit Kapitel 13: Deployment und Systemintegration (systemd, Auto-Start)
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+13. Deployment und Systemintegration
 
-    Zentrale Fehlerdiagnose – auch bei entfernten Systemen
+In diesem Kapitel wird beschrieben, wie das Modbus-Gateway auf einem Zielsystem (z. B. Raspberry Pi) installiert, automatisch gestartet und verwaltet wird. Dies umfasst sowohl manuelles Deployment als auch systemd-Integration.
+13.1. Voraussetzungen
 
-    Reproduzierbarkeit von Problemen
+    Betriebssystem: Empfohlen: Raspberry Pi OS 64 Bit (Debian-basiert)
 
-    Keine zusätzlichen Abhängigkeiten notwendig
+    Benötigte Pakete:
 
+sudo apt install libmodbus-dev libpaho-mqttpp3-dev build-essential
 
-📦 Abschnitt 20: Konfigurationsdatei (modbus_gateway.ini)
+Serielle Berechtigung: Der Benutzer muss Zugriff auf /dev/ttyAMA0 haben:
 
-Die Konfigurationsdatei erlaubt es, das Verhalten des Gateways zur Laufzeit flexibel anzupassen – ohne Neukompilierung. Sie basiert auf dem .ini-Format und wird beim Start des Programms gelesen.
-📁 Pfad und Verarbeitung
+    sudo usermod -aG dialout $USER
+
+13.2. Kompilierung
+
+Im Projektverzeichnis:
+
+make
+
+Erzeugt:
+
+    die ausführbare Datei modbus_gateway
+
+Alternativ manuell:
+
+g++ -o modbus_gateway modbus_gateway.cpp ini.c -lmodbus -lpaho-mqttpp3 -lpaho-mqtt3as -lpthread
+
+13.3. systemd-Service-Datei
+Datei: /etc/systemd/system/modbus_gateway.service
+
+[Unit]
+Description=Modbus TCP↔RTU + MQTT Gateway
+After=network.target
+
+[Service]
+ExecStart=/home/benno/modbus_gateway/modbus_gateway /etc/modbus_gateway.ini
+Restart=always
+User=benno
+Group=benno
+WorkingDirectory=/home/benno/modbus_gateway
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
+13.4. Aktivieren des Dienstes
+
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable modbus_gateway
+sudo systemctl start modbus_gateway
+
+13.5. Status prüfen
+
+systemctl status modbus_gateway
+journalctl -u modbus_gateway -f
+
+13.6. Deployment-Ordnerstruktur
+
+Empfohlen:
+
+/home/benno/modbus_gateway/
+├── modbus_gateway            # Executable
+├── modbus_gateway.cpp        # Quellcode
+├── ini.c / ini.h             # INI-Parser
+├── Makefile
+├── README.md
+├── systemd/
+│   └── modbus_gateway.service
+└── config/
+    └── modbus_gateway.ini
+
+13.7. Tipps
+
+    Logs gehen standardmäßig nach /var/log/modbus_gateway.log
+
+    Die Logdatei kann via logrotate rotiert werden
+
+    MQTT-Fehler und Wiederverbindungen werden automatisch gehandhabt
+
+📌 Weiter mit Kapitel 14: INI-Konfigurationsformat und Parameterreferenz
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+14. INI-Konfigurationsformat und Parameterreferenz
+
+Die zentrale Konfiguration des Gateways erfolgt über eine INI-Datei. Diese ermöglicht es, alle relevanten Parameter strukturiert zu setzen – von seriellen Einstellungen bis hin zu MQTT und Logging.
+14.1. Speicherort
 
 Standardpfad:
 
-const char* config_path = "/etc/modbus_gateway.ini";
+/etc/modbus_gateway.ini
 
-Optional kann ein Pfad per Kommandozeilenargument übergeben werden. Zusätzlich gibt es einen --dry-run-Modus zur Validierung.
-🧠 Parsing
+Beim Start kann alternativ eine Konfigurationsdatei übergeben werden:
 
-Wird mit Hilfe von inih verarbeitet:
+./modbus_gateway /pfad/zur/datei.ini
 
-if (ini_parse(config_path, config_handler, &config) < 0) {
-    log("Konnte Konfiguration nicht laden, nutze Defaults.");
-    return false;
-}
-
-Der config_handler() setzt dabei die Felder der struct Config.
-🧾 Unterstützte Konfigurationsoptionen
-
-Hier ein Beispiel für eine vollständige Datei:
+14.2. Struktur der INI-Datei
 
 [serial]
 port = /dev/ttyAMA0
@@ -1292,240 +1118,525 @@ stopbits = 1
 [tcp]
 port = 502
 
+[modbus]
+slave_id = 1
+
 [mqtt]
-broker = tcp://192.168.0.82:1883
+broker = tcp://localhost:1883
 client_id = modbus_gateway
 topic_prefix = modbus/
-username = myuser
-password = mypass
+username =
+password =
 keepalive = 30
 lwt = offline
 online = online
+use_tls = 0
+ca_file =
+cert_file =
+key_file =
+insecure = 0
+stats_interval = 60
+
+[log]
+file = /var/log/modbus_gateway.log
+hex_dump = 0
+
+14.3. Beschreibung der Parameter
+[serial]
+Parameter	Typ	Beschreibung
+port	String	Serielle Schnittstelle
+baudrate	Zahl	Baudrate (z. B. 9600, 19200, …)
+parity	Zeichen	Parität: N, E oder O
+databits	Zahl	Datenbits (typisch: 8)
+stopbits	Zahl	Stoppbits (typisch: 1)
+[tcp]
+Parameter	Typ	Beschreibung
+port	Zahl	TCP-Port für Modbus-TCP-Server
+[modbus]
+Parameter	Typ	Beschreibung
+slave_id	Zahl	Default Slave-ID (nur für MQTT-Zugriffe)
+[mqtt]
+Parameter	Typ	Beschreibung
+broker	String	MQTT-Broker URI (z. B. tcp://localhost:1883)
+client_id	String	Client-ID des MQTT-Clients
+topic_prefix	String	Präfix für alle MQTT-Topics (z. B. modbus/)
+username	String	MQTT-Benutzername
+password	String	MQTT-Passwort
+keepalive	Zahl	Keepalive in Sekunden
+lwt	String	Last-Will-Payload (z. B. „offline“)
+online	String	Online-Payload beim Start (z. B. „online“)
+use_tls	0/1	TLS aktivieren (1 = ja)
+ca_file	String	Pfad zur CA-Datei
+cert_file	String	Client-Zertifikatdatei
+key_file	String	Client-Schlüsseldatei
+insecure	0/1	TLS-Zertifikatprüfung deaktivieren (unsicher!)
+stats_interval	Zahl	Intervall in Sekunden zur Veröffentlichung
+[log]
+Parameter	Typ	Beschreibung
+file	String	Pfad zur Log-Datei
+hex_dump	0/1	Hexdump für Modbus-Rohdaten aktivieren (Debug)
+
+📌 Weiter mit Kapitel 15: Beispiele für MQTT-Kommunikation
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+15. Beispiele für MQTT-Kommunikation
+
+In diesem Kapitel werden typische MQTT-Kommandos und Nachrichtenformate beschrieben, um über MQTT auf Modbus-Geräte zuzugreifen oder Statusinformationen zu erhalten.
+15.1. Schreibzugriff: Holding Register oder Coils
+
+Das Gateway verarbeitet MQTT-Nachrichten unterhalb des Topics:
+
+modbus/write/<type>/<slave_id>/<register>
+
+<type>
+Typ	Bedeutung
+coil	Schreibzugriff auf Coil (FC 5, 15)
+holding	Schreibzugriff auf Holding Register (FC 6, 16)
+Beispiel 1: Coil setzen (Slave 1, Coil 100 auf true setzen)
+
+Topic:
+
+modbus/write/coil/1/100
+
+Payload (JSON):
+
+true
+
+Beispiel 2: Holding Register schreiben (Slave 3, Register 40001 = 1234)
+
+Topic:
+
+modbus/write/holding/3/0
+
+Payload:
+
+1234
+
+📌 Hinweis: Holding Register Adressen beginnen bei 0!
+15.2. Lesezugriff: per MQTT-Request
+
+MQTT unterstützt lesende Anfragen durch Veröffentlichung unter:
+
+modbus/read/<type>/<slave_id>/<register>[,<anzahl>]
+
+Der Gateway antwortet auf:
+
+modbus/response/<type>/<slave_id>/<register>
+
+Beispiel 3: Holding Register 0 (40001) von Slave 3 lesen
+
+Topic (Anfrage):
+
+modbus/read/holding/3/0
+
+Antwort:
+
+modbus/response/holding/3/0
+
+Payload:
+
+[1234]
+
+Beispiel 4: Input Register 30010 bis 30014 von Slave 2 lesen
+
+Topic (Anfrage):
+
+modbus/read/input/2/9,5
+
+Antwort:
+
+modbus/response/input/2/9
+
+Payload:
+
+[318, 319, 320, 321, 322]
+
+15.3. Diagnosedaten via MQTT erhalten
+
+Wird in der INI-Datei mqttStatsInterval > 0 gesetzt, sendet das Gateway periodisch Statistiken:
+
+Topic:
+
+modbus/stats
+
+Payload:
+
+{
+  "tcp_requests": 123,
+  "rtu_success": 120,
+  "rtu_failures": 3,
+  "dropped": 0,
+  "echo_replies": 5
+}
+
+15.4. Statistik manuell per Kommando anfordern
+
+Topic:
+
+modbus/command/stats
+
+Payload: (optional, z. B. "now")
+Antwort erfolgt erneut auf modbus/stats.
+
+📌 Weiter mit Kapitel 16: Beispiele für Modbus TCP-Client
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+16. Beispiele für Modbus TCP-Kommunikation
+
+Dieses Kapitel zeigt, wie sich ein externer Modbus TCP-Client mit dem Gateway verbinden kann, um über die TCP-Schnittstelle auf die dahinterliegenden RTU-Geräte zuzugreifen. Das Gateway fungiert als Proxy zwischen TCP und serieller RTU-Verbindung.
+16.1. Verbindungsaufbau
+
+Der TCP-Server lauscht standardmäßig auf Port 502, sofern nicht anders in der modbus_gateway.ini angegeben.
+
+Ein typischer Modbus-TCP-Client verbindet sich wie folgt:
+
+    Host: IP-Adresse des Raspberry Pi
+
+    Port: 502
+
+    Slave ID: 1…247 (je nach Zielgerät)
+
+    Funktion: Standard-Modbus-Funktionen (FC1, FC2, FC3, FC4, FC5, FC6, FC15, FC16)
+
+16.2. Beispiel mit mbpoll (Modbus-TCP)
+
+Installiere mbpoll (z. B. unter Linux via Paketmanager) und führe folgendes aus:
+Lesen eines Holding Registers (Register 0) von Slave 1:
+
+mbpoll -m tcp -a 1 -r 0 -c 1 -t 4:int -1 192.168.0.100
+
+Erklärung:
+
+    -m tcp → Modbus TCP
+
+    -a 1 → Slave-Adresse 1
+
+    -r 0 → Registeradresse 0
+
+    -c 1 → 1 Register lesen
+
+    -t 4:int → Format: 16-bit Holding Register
+
+    -1 → Port 502
+
+    192.168.0.100 → Gateway-IP
+
+16.3. Schreiben in ein Holding Register
+
+mbpoll -m tcp -a 1 -r 0 -t 4:int -1 192.168.0.100 --write 1234
+
+Schreibt den Wert 1234 in Register 0 von Slave 1.
+16.4. Weitere Clients
+
+Auch andere Clients wie:
+
+    QModMaster (Windows/Qt)
+
+    Node-RED mit Modbus Nodes
+
+    Python (pymodbus)
+
+    CODESYS oder TIA Portal
+
+können ohne spezielle Anpassungen direkt mit dem Gateway arbeiten, solange sie Modbus TCP unterstützen.
+17. Logging und Diagnose
+17.1. Datei-Logging
+
+Alle Ereignisse, Fehler, Statuswechsel werden in die Datei geloggt:
+
+/var/log/modbus_gateway.log
+
+Konfigurierbar via:
 
 [log]
 file = /var/log/modbus_gateway.log
 
-[modbus]
-slave_id = 1
+17.2. MQTT-Logging
 
-🧩 Details zu jedem Abschnitt
-🔌 [serial]
+Jede Logzeile wird zusätzlich auf dem Topic:
 
-    Konfiguriert die Modbus-RTU Schnittstelle.
+modbus/log
 
-    Unterstützt alle gängigen Parameter: Baudrate, Parität, Daten-/Stoppbits.
+veröffentlicht – vorausgesetzt, MQTT ist verbunden.
+17.3. Hex-Dump aktivieren
 
-🌐 [tcp]
+Zur Analyse der RTU-Kommunikation kann ein Hexdump aktiviert werden:
 
-    Konfiguriert den TCP-Port für Modbus-TCP zu RTU Forwarding.
+[log]
+hex_dump = 1
 
-📡 [mqtt]
+Beispielausgabe:
 
-    Verbindungsdaten zum MQTT-Broker
+→ RTU TX: 01 03 00 6B 00 03 76 87
+← RTU RX: 01 03 06 02 2B 00 00 00 64 39 80
 
-    topic_prefix steuert alle MQTT-Themen (z. B. modbus/write/123)
+📌 Weiter mit Kapitel 18: systemd-Integration, Startverhalten, Benutzerverwaltung
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+18. systemd-Integration, Autostart und Benutzerverwaltung
 
-    LWT und Online-Payloads helfen bei Statusüberwachung
+Um das Gateway automatisch beim Systemstart zu laden und im Hintergrund als Dienst zu betreiben, kann eine systemd-Serviceeinheit verwendet werden.
+18.1. Beispiel modbus_gateway.service
 
-📋 [log]
+Speichern unter:
+/etc/systemd/system/modbus_gateway.service
 
-    Legt den Pfad für die Logdatei fest (z. B. /var/log/modbus_gateway.log)
+[Unit]
+Description=Modbus TCP <-> RTU + MQTT Gateway
+After=network.target
 
-🔁 [modbus]
+[Service]
+ExecStart=/usr/local/bin/modbus_gateway /etc/modbus_gateway.ini
+Restart=always
+RestartSec=5
+User=modbus
+Group=modbus
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=modbus_gateway
 
-    Gibt den Slave-ID des angesprochenen Modbus-Ziels an
+[Install]
+WantedBy=multi-user.target
 
-🔄 Neu laden zur Laufzeit?
+18.2. Benutzer modbus anlegen (empfohlen)
 
-Nein.
-Änderungen an der Datei wirken sich erst nach einem Neustart des Programms aus.
-🧪 Validierungsmodus
+Damit das Gateway nicht als root laufen muss:
 
-Du kannst die Konfiguration prüfen, ohne das Gateway zu starten:
+sudo useradd --system --no-create-home --group modbus modbus
+sudo chown modbus:modbus /var/log/modbus_gateway.log
 
-./modbus_gateway /etc/modbus_gateway.ini --dry-run
+Optional:
+Modbus-Benutzer Zugriff auf /dev/ttyAMA0 erlauben:
 
+sudo usermod -aG dialout modbus
 
-⚙️ Abschnitt 21: Systemstart & CLI-Aufruf (main()-Funktion)
+18.3. Dienst aktivieren und starten
 
-Die main()-Funktion ist der zentrale Einstiegspunkt des Gateways. Hier wird der gesamte Initialisierungsablauf, der Start der Serverkomponenten und der Haupt-Thread gesteuert.
-🔁 Übersicht des Ablaufs
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable modbus_gateway.service
+sudo systemctl start modbus_gateway.service
 
-int main(int argc, char* argv[]) {
-    ...
-    // 1. CLI-Parameter prüfen
-    // 2. Signal-Handler registrieren
-    // 3. Logdatei öffnen
-    // 4. Konfiguration laden
-    // 5. MQTT initialisieren
-    // 6. Modbus RTU initialisieren
-    // 7. TCP-Server starten
-    // 8. Client-Akzeptanz starten
-    // 9. Shutdown
+18.4. Status prüfen
+
+sudo systemctl status modbus_gateway
+
+18.5. Neustart/Stop
+
+sudo systemctl restart modbus_gateway
+sudo systemctl stop modbus_gateway
+
+19. Sicherheit und TLS
+19.1. TLS für MQTT aktivieren
+
+Die Verbindung zum MQTT-Broker kann TLS-verschlüsselt erfolgen. Dazu folgende Parameter in der INI-Datei setzen:
+
+[mqtt]
+use_tls = 1
+ca_file = /etc/ssl/certs/ca.crt
+cert_file = /etc/ssl/certs/client.crt
+key_file = /etc/ssl/private/client.key
+insecure = 0
+
+    use_tls = 1 aktiviert TLS
+
+    insecure = 1 deaktiviert die Serverzertifikatsprüfung (nicht empfohlen!)
+
+19.2. MQTT über TLS testen
+
+Falls dein Broker z. B. unter mqtts://broker.local:8883 erreichbar ist:
+
+broker = ssl://broker.local:8883
+
+Achte darauf, dass der Port und das Protokoll (ssl:// statt tcp://) korrekt sind.
+20. Statistiken und Überwachung
+20.1. Automatische Statistik (periodisch)
+
+Alle mqttStatsInterval Sekunden wird auf folgendes Topic veröffentlicht:
+
+modbus/stats
+
+Beispielinhalt:
+
+{
+  "total_tcp_requests": 1432,
+  "total_rtu_requests": 1410,
+  "total_errors": 22,
+  "rtu_success": 1405,
+  "rtu_failures": 5,
+  "dropped": 2,
+  "echo_replies": 18,
+  "last_success_timestamp": 1719438511
 }
 
-🧪 Unterstützte Aufrufe
+20.2. Statistik sofort anfordern
 
-./modbus_gateway [pfad/zur/config.ini] [--dry-run]
+MQTT senden an:
 
-Optionen:
+modbus/command/stats
 
-    --version: Zeigt die aktuelle Softwareversion
+Antwort erfolgt auf:
 
-    --help oder -h: Zeigt eine kurze Hilfe
+modbus/stats
 
-    --dry-run: Führt nur Konfigurationsprüfung durch
+20.3. Statistik zurücksetzen
 
-🔐 Signal-Handling
+Sende ein leeres MQTT-Message an:
 
-Behandelt SIGINT und SIGTERM, um das Gateway sauber zu beenden:
+modbus/stats/reset
 
-signal(SIGINT, signal_handler);
-signal(SIGTERM, signal_handler);
+📌 Weiter mit Kapitel 21: Fehlerbehandlung und Wiederverbindung
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
+21. Fehlerbehandlung und Wiederverbindung
+21.1. Modbus RTU Fehlerbehandlung
 
-🧾 Logfile öffnen
+Alle Fehler beim Senden oder Empfangen auf der seriellen Schnittstelle werden:
 
-logFile.open(config.logFilePath, std::ios::app);
-log("Starte Gateway...");
+    mit modbus_strerror(errno) ins Log geschrieben,
 
-📥 Initialisierungen
+    im MQTT-Log publiziert (sofern Verbindung besteht),
 
-if (!init_config(...)) return 1;
-if (!dry_run && !init_mqtt()) return 1;
-if (!dry_run && !init_modbus()) return 1;
-if (!dry_run && !start_tcp_server()) return 1;
+    und statistisch gezählt (total_errors, rtu_failures).
 
-📡 Client-Verbindung
+Beispiel-Logeintrag bei Kommunikationsfehler:
 
-if (!dry_run) accept_clients();
+2025-06-26 10:15:27 - Fehler beim Empfangen von RTU: Connection timed out
 
-Dieser Aufruf blockiert (läuft dauerhaft). Der Haupt-Thread bleibt so aktiv.
-🔚 Programmbeendigung
+21.2. MQTT-Verbindungsüberwachung
 
-shutdown_gateway();
-return 0;
+Die MQTT-Verbindung wird automatisch überwacht:
 
-Der Shutdown ist robust implementiert: Alle MQTT-Verbindungen werden getrennt, offene RTU-Handles und TCP-Sockets geschlossen und Threads sauber beendet.
+    Bei Verbindungsverlust wird ein Hintergrundthread gestartet, der periodisch einen Reconnect versucht.
 
+    Während des Reconnects wird kein weiterer Reconnect-Thread gestartet.
 
-🧹 Abschnitt 22: Shutdown-Prozedur und Ressourcenfreigabe (shutdown_gateway())
+    Erfolgreicher Reconnect führt zum Neuaufbau aller Subscriptions und Publikation des Online-Status.
 
-Die Funktion shutdown_gateway() sorgt dafür, dass beim Beenden des Programms alle Ressourcen sauber freigegeben werden. Dies ist essenziell für die Systemstabilität und für Wiederstarts ohne „hängende“ Prozesse oder offene Ports.
-🔧 Funktionssignatur
+21.3. Abfangen von Signalen
 
-void shutdown_gateway();
+Die folgenden Signale werden behandelt:
 
-🪚 Ablauf im Detail
+    SIGINT (z. B. Ctrl+C)
 
-// 1. Alle Client-Threads beenden
-for (auto& t : client_threads)
-    if (t.joinable()) t.join();
+    SIGTERM (z. B. via kill)
 
-    Wartet darauf, dass alle durch accept_clients() erzeugten Threads (handle_client()) fertig sind.
+Diese führen zu einem sauberen Shutdown:
 
-// 2. MQTT-Verbindung sauber trennen
-if (mqttClient && mqttClient->is_connected()) {
-    mqttClient->publish(config.mqttTopicPrefix + "status", config.mqttLwtPayload.c_str(), MQTT_QOS, true);
-    mqttClient->disconnect()->wait();
-}
+    Alle Client-Threads werden beendet.
 
-    Informiert den MQTT-Broker, dass das Gateway offline ist (LWT → Last Will Topic).
+    MQTT wird abgemeldet und der Offline-Status gesendet.
 
-    Trennt die Verbindung synchron.
+    Modbus wird sauber geschlossen.
 
-// 3. Modbus RTU-Schnittstelle schließen
-if (rtu_ctx) {
-    modbus_close(rtu_ctx);
-    modbus_free(rtu_ctx);
-}
+    Log-Datei wird beendet.
 
-    Vermeidet Speicherlecks und blockierte serielle Schnittstellen beim Neustart.
+21.4. TCP-Zeitüberschreitung
 
-// 4. TCP-Server schließen
-if (server_sock != -1)
-    close(server_sock);
+Jeder verbundene Client bekommt ein Timeout:
 
-    Gibt den TCP-Port (Standard 502) frei.
+timeout.tv_sec = 60;
+setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
-// 5. Logdatei sauber schließen
-log("Gateway beendet");
-logFile.close();
+Verbindungen ohne Aktivität werden damit nach 60 Sekunden automatisch getrennt.
+22. Logging und Diagnose
+22.1. Log-Datei
 
-    Letzter Logeintrag zur sauberen Protokollierung des Shutdowns.
+Standard: /var/log/modbus_gateway.log
+Pfad konfigurierbar via INI:
 
-✅ Zusammenfassung
-Schritt	Beschreibung
-1.	Client-Threads sauber beenden
-2.	MQTT-Verbindung ordentlich abmelden
-3.	Modbus-RTU freigeben
-4.	TCP-Port schließen
-5.	Logdatei mit Status schließen
+[log]
+file = /var/log/modbus_gateway.log
 
+Format:
 
-📦 Abschnitt 23: Zusammenfassung & Projektstruktur
-✅ Projektziel
+YYYY-MM-DD HH:MM:SS - <Nachricht>
 
-Dieses Gateway dient als zuverlässige und erweiterbare Schnittstelle zwischen:
+22.2. MQTT-Log
 
-    🧱 Modbus TCP (z. B. SCADA-Systeme, Node-RED)
+Falls MQTT verbunden ist, werden alle Log-Meldungen ebenfalls an folgendes Topic gesendet:
 
-    📟 Modbus RTU (seriell) (z. B. Wärmepumpe, Sensoren)
+modbus/log
 
-    ☁️ MQTT (z. B. Home Assistant, Domoticz, Node-RED, Grafana)
+Dies ermöglicht z. B. eine Anbindung an:
 
-Es ermöglicht das Lesen und Schreiben aller relevanten Modbus-Registertypen, ist konfigurierbar über eine .ini-Datei und kann auch als MQTT-basiertes Monitoring- und Steuerungs-Backend dienen.
-📂 Projektstruktur (empfohlene Deployment-Struktur)
+Node-RED (Debug)
+InfluxDB (mit Log-Level-Analyse)
+Prometheus (via Exporter)
 
-modbus_gateway/
-├── src/
-│   └── modbus_gateway.cpp     # Hauptprogramm (bereits dokumentiert)
-├── config/
-│   └── modbus_gateway.ini     # Konfigurationsdatei (Pfad: /etc/modbus_gateway.ini)
-├── logs/
-│   └── modbus_gateway.log     # Laufendes Logfile
-├── systemd/
-│   └── modbus_gateway.service # Optional: Autostart über systemd
-└── README.md                  # Detaillierte Projektdokumentation
+22.3. Hex-Dumps
 
-📑 Unterstützte MQTT-Themen (für Node-RED, MQTT-Clients etc.)
-Typ	MQTT-Topic (Beispiel)	Beschreibung
-Holding Register (RW)	modbus/write/42, modbus/read/42	Einzelnes Register lesen/schreiben
-Input Register (RO)	modbus/read_input/100	Sensordaten etc. lesen
-Coils (RW)	modbus/write_coil/7, modbus/read_coil/7	Digitale Ausgänge (on/off)
-Discrete Inputs (RO)	modbus/read_discrete/5	Digitale Eingänge lesen
-Mehrfachlesen	modbus/read_multi/0:4 (→ Reg. 0–3)	Mehrere Holding Register
-	modbus/read_input_multi/100:2	Mehrere Input Register
-	modbus/read_coil_multi/10:4	Mehrere Coils
-	modbus/read_discrete_multi/20:2	Mehrere Discrete Inputs
-💡 Beispiel-Nutzung mit MQTT
+Wenn aktiviert:
 
-# Setze Modbus-Holding-Register 42 auf den Wert 77
-mosquitto_pub -t modbus/write/42 -m 77
+[log]
+hex_dump = 1
 
-# Lese Modbus-Register 42
-mosquitto_pub -t modbus/read/42 -n
+werden Modbus-Anfragen und -Antworten im Log hexadezimal ausgegeben.
 
-Die Antwort erscheint auf dem Topic modbus/read/42.
-🛠️ Kommandozeilenoptionen
+Beispiel:
 
-./modbus_gateway /etc/modbus_gateway.ini
-./modbus_gateway --dry-run
-./modbus_gateway --version
-./modbus_gateway --help
+→ RTU TX: 01 03 00 00 00 02 C4 0B
+← RTU RX: 01 03 04 00 0A 00 14 FA 33
 
-🧯 Shutdown- und Fehlertoleranz
+23. Projektstruktur und Dateien
+23.1. Wichtige Quelldateien
+Datei	Beschreibung
+modbus_gateway.cpp	Hauptanwendung mit Modbus-/MQTT-Logik
+ini.c/h	INI-Dateiparser
+Makefile	Kompilation und Installation
+modbus_gateway.service	systemd-Dienstdefinition
+23.2. Konfigurationsdatei
 
-    MQTT-Reconnect bei Verbindungsverlust
+Beispiel:
 
-    Logging in Datei und MQTT
+/etc/modbus_gateway.ini
 
-    Konfigurierbarer LWT (Last Will and Testament)
+Struktur siehe Kapitel 3.3 INI-Datei Aufbau.
+23.3. Kompilierung
 
-    Signalverarbeitung (SIGINT, SIGTERM) für sauberes Beenden
+make
 
-📦 Projektstatus
+Installiert nach /usr/local/bin/modbus_gateway
+23.4. Logs
 
-✅ Stabil für produktiven Einsatz
-🛠️ Modular erweiterbar (z. B. Web-GUI, OTA, TLS)
+/var/log/modbus_gateway.log
+
+23.5. Systemdienst
+
+/etc/systemd/system/modbus_gateway.service
+
+23.6. MQTT Topics Übersicht (kompakt)
+Zweck	Topic	Beispiel
+Status	modbus/status	online / offline
+Logging	modbus/log	Logeinträge
+Statistik	modbus/stats	JSON mit Zählerwerten
+Statistik abrufen	modbus/command/stats	leer
+Statistik zurücksetzen	modbus/stats/reset	leer
+Holding Register lesen	modbus/read/1234	Antwort: 42
+Holding Register schreiben	modbus/write/1234	Nachricht: 42
+Coil lesen	modbus/read_coil/1234	Antwort: 1
+Coil schreiben	modbus/write_coil/1234	Nachricht: 0
+Input Register lesen	modbus/read_input/1234	Antwort: 1042
+Discrete Input lesen	modbus/read_discrete/1234	Antwort: 0
+Mehrfachregister lesen	modbus/read_multi/100:4	Antwort: 123,456,789,1011
+Mehrfach-Coils lesen	modbus/read_coil_multi/0:8	Antwort: 1,1,0,0,1,0,1,1
+23.7. Lizenzen / Abhängigkeiten
+
+    libmodbus – https://libmodbus.org/
+
+    Eclipse Paho MQTT C++ – https://www.eclipse.org/paho/
+
+    inih (INI-Parser) – https://github.com/benhoyt/inih
+
+Alle Drittkomponenten sind unter liberalen Open-Source-Lizenzen verfügbar.
 
 
