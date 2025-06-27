@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "by-gdb",
+      "request": "launch",
+      "name": "Launch(remote)",
+      "program": "/usr/bin/gdb",
+      "cwd": "${workspaceRoot}",
+      "remote": {
+        "enabled": true,
+        "address": "192.168.0.73:2345",
+        "mode": "remote",
+        "execfile": "modbus_gateway",
+        "user": "benno",
+        "password": "sagitarius",
+        "debuginfod": {
+          "enabled": true
+        }
+      }
+    }
+  ]
+}

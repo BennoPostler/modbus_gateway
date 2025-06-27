@@ -20,7 +20,7 @@ PAHO_C_LIB := $(PAHO_C_DIR)/build/src/libpaho-mqtt3as.a
 # ---------------------------
 CXX := $(CROSS_COMPILE)-g++
 
-CXXFLAGS := -Wall -std=c++17 --sysroot=$(SYSROOT) \
+CXXFLAGS := -Wall -g -std=c++17 --sysroot=$(SYSROOT) \
   -Iinclude \
   -I$(PAHO_CPP_DIR)/src \
   -I$(PAHO_C_DIR)/src \

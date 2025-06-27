@@ -1,23 +1,43 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Build for Raspberry Pi",
-      "type": "shell",
-      "command": "make",
-      "args": [],
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-           "SYSROOT": "home/benno/sysroot-aarch64"
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build for Raspberry Pi",
+            "type": "shell",
+            "command": "make",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "SYSROOT": "home/benno/sysroot-aarch64"
+                }
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "type": "cppbuild",
+            "label": "C/C++: aarch64-linux-gnu-g++ Aktive Datei kompilieren",
+            "command": "/usr/bin/aarch64-linux-gnu-g++",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "${file}",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}",
+                "--sysroot=/home/benno/sysroot-aarch64"
+            ],
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "Vom Debugger generierte Aufgabe."
         }
-      },
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": []
-    }
-  ]
+    ]
 }
-
