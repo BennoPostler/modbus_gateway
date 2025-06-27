@@ -1,0 +1,19 @@
+Starte Modbus TCP->RTU Gateway...
+Modbus TCP->RTU Gateway hört auf Port 502
+Client verbunden
+Keine Antwort vom RTU-Gerät
+Client getrennt
+Client verbunden
+Keine Antwort vom RTU-Gerät
+Client getrennt
+Client verbunden
+Keine Antwort vom RTU-Gerät
+Client getrennt
+Beende Gateway...
+Client verbunden
+Gateway beendet
+Starte Modbus TCP->RTU + MQTT Gateway...
+MQTT verbunden: tcp://192.168.0.82:1883
+Modbus TCP->RTU Gateway hört auf Port 502
+Beende Gateway durch Signal...
+Gateway beendet

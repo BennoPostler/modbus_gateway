@@ -1,0 +1,9 @@
+[Service]
+ExecStart=/usr/local/bin/modbus_gateway /etc/modbus_gateway.ini
+WorkingDirectory=/usr/local/bin
+Environment=LD_LIBRARY_PATH=/usr/local/lib
+StandardOutput=append:/var/log/modbus_gateway.log
+StandardError=append:/var/log/modbus_gateway.log
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT

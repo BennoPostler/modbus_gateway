@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Cross Compile Raspberry Pi 5",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/third_party/paho.mqtt.cpp/src",
+                "${workspaceFolder}/third_party/paho.mqtt.c/src",
+                "/home/benno/sysroot-aarch64/usr/include/aarch64-linux-gnu",
+                "/home/benno/sysroot-aarch64/usr/include",
+                "/home/benno/sysroot-aarch64/usr/include/c++",
+                "/home/benno/sysroot-aarch64/usr/include/c++/12"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/aarch64-linux-gnu-g++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-arm64",
+            "compilerArgs": [
+                "--sysroot sysroot-aarch64"
+            ]
+        }
+    ],
+    "version": 4
+}
