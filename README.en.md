@@ -2,9 +2,10 @@ Foreword
 
 🔗 [📄 Deutsch (README.md)](README.md)
 
-This software is in an operation.
-But I am still expanding the functionality.
-If there is interest if there is pleased to comments, suggestions for improvement reports.
+This software is in an operation.  
+But I am still expanding the functionality.  
+If there is interest if there is pleased to comments, suggestions for improvement reports.  
+
 Modbus Gateway – Documentation
 1. Introduction and overview
 
