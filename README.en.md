@@ -6,8 +6,8 @@ This software is in an operation.
 But I am still expanding the functionality.  
 If there is interest if there is pleased to comments, suggestions for improvement reports.  
 
-Modbus Gateway – Documentation
-1. Introduction and overview
+# Modbus Gateway – Documentation
+## 1. Introduction and overview
 
 This project provides a robust and flexible gateway that bridges the gap between Modbus TCP, Modbus RTU and MQTT. It is ideally suited for the integration of classic industrial plants (e.g. B. Heat pumps, energy meters, controls) in modern IoT or smart home environments.
 
