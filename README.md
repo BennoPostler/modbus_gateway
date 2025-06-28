@@ -1,7 +1,5 @@
 # Vorwort
 🔗 [📄 English (README.en.md)](README.en.md)
-The english version of the readme.md will follow shortly.  
-In the meantime, use the translation function of your browser or google translate.  
 
 Diese Software ist in einem lauffähigen Zustand.  
 Ich bin aber noch am erweitern der Funktionalität.  
