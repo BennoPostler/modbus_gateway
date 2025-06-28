@@ -1,8 +1,8 @@
 ## Vorwort
 
-Diese Software ist in einem lauffähigen Zustand.<br>
-Ich bin aber noch am erweitern der Funktionalität.<br>
-Wenn Interesse besteht gerne Kommentare, Verbesserungsvorschläge Melden.<br> 
+Diese Software ist in einem lauffähigen Zustand.  
+Ich bin aber noch am erweitern der Funktionalität.  
+Wenn Interesse besteht gerne Kommentare, Verbesserungsvorschläge Melden. 
 
 
 
