@@ -69,26 +69,26 @@ Das modbus_gateway ist ein modular aufgebautes Software-System für den Einsatz 
 
 2.2. Komponentenübersicht
 
-+----------------+      Modbus TCP       +----------------+
-| TCP Client(s)  | <------------------>  |   Gateway       |
-|  (z. B. SCADA) |                      | (modbus_gateway)|
-+----------------+                      +--------+--------+
-                                                  |
-                                                  | Serial Line (RTU)
-                                                  |
-                                          +-------+--------+
-                                          | Modbus Slave(s) |
-                                          +-----------------+
-
-+------------------------+
-|      MQTT Broker       |  <--- TLS / TCP --->
-+------------------------+
-         ▲        ▲
-         |        |
-    +----+    +---+----+
-    | Home |  | Logging |
-    |Assistant etc.     |
-    +-------------------+
++----------------+      Modbus TCP       +-----------------+  
+| TCP Client(s)  | <------------------>  |   Gateway       |  
+|  (z. B. SCADA) |                       | (modbus_gateway)|  
++----------------+                       +--------+--------+  
+                                                  |  
+                                                  | Serial Line (RTU)  
+                                                  |  
+                                          +-------+---------+  
+                                          | Modbus Slave(s) |  
+                                          +-----------------+  
+  
++------------------------+  
+|      MQTT Broker       |  <--- TLS / TCP --->  
++------------------------+  
+         ▲        ▲  
+         |        |  
+    +----+    +---+----+  
+    | Home |  | Logging |  
+    |Assistant etc.     |  
+    +-------------------+  
 
 2.3. Architekturübersicht
 
