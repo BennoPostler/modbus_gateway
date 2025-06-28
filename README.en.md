@@ -1,6 +1,6 @@
 Foreword
 
-🔗 [📄 Deutsch (README.de.md)](README.de.md)
+🔗 [📄 Deutsch (README.md)](README.md)
 The english version of the readme.md will follow shortly.
 In the meantime, use the translation function of your browser or google translate.
 
