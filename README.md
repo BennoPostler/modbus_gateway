@@ -1,6 +1,6 @@
 ## Vorwort
 
-Diese Software ist in einem lauffähigen Zustand.
+Diese Software ist in einem lauffähigen Zustand.<br>
 Ich bin aber noch am erweitern der Funktionalität.
 Wenn Interesse besteht gerne Kommentare, Verbesserungsvorschläge Melden. 
 
