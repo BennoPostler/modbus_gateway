@@ -1,3 +1,11 @@
+Foreword
+
+🔗 [📄 English (README.en.md)](README.en.md)
+Diese Software ist in einem lauffähigen Zustand.  
+Ich bin aber noch am erweitern der Funktionalität.  
+Wenn Interesse besteht gerne Kommentare, Verbesserungsvorschläge Melden.  
+
+
 # Modbus Gateway – Dokumentation
 
 ## 1. Einführung und Überblick
