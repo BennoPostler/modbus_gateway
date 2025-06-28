@@ -1,13 +1,3 @@
-
-# Vorwort
-🔗 [📄 English (README.en.md)](README.en.md)
-
-Diese Software ist in einem lauffähigen Zustand.  
-Ich bin aber noch am erweitern der Funktionalität.  
-Wenn Interesse besteht gerne Kommentare, Verbesserungsvorschläge Melden. 
-
-
-
 # Modbus Gateway – Dokumentation
 
 ## 1. Einführung und Überblick
@@ -42,11 +32,9 @@ Dieses Projekt stellt ein robustes und flexibles Gateway bereit, das eine Brück
 Die Anwendung läuft nativ unter **Linux (Raspberry Pi OS, Debian, Fedora)** und kann über `systemd` als Dienst gestartet werden. Ein MQTT-Broker (z. B. Mosquitto) wird für den vollen Funktionsumfang benötigt.
 
 > Die Software ist vollständig in C++ geschrieben und nutzt moderne Bibliotheken wie libmodbus, Paho MQTT C++ und eine einfache INI-Konfigurationslogik.
-
 2. Systemübersicht & Architektur
 
 Das modbus_gateway ist ein modular aufgebautes Software-System für den Einsatz auf Geräten wie dem Raspberry Pi 5 (aarch64), das Modbus TCP und Modbus RTU bidirektional überbrückt, zusätzlich MQTT-Schnittstellen zur Verfügung stellt und dabei Monitoring, Logging, sowie Diagnosefunktionen nach Modbus-Norm implementiert.
-
 2.1. Hauptfunktionen
 
     🔁 Modbus TCP ↔ RTU Gateway
@@ -69,26 +57,26 @@ Das modbus_gateway ist ein modular aufgebautes Software-System für den Einsatz 
 
 2.2. Komponentenübersicht
 
-+----------------+      Modbus TCP       +-----------------+  
-| TCP Client(s)  | <------------------>  |   Gateway       |  
-|  (z. B. SCADA) |                       | (modbus_gateway)|  
-+----------------+                       +--------+--------+  
-                                                  |  
-                                                  | Serial Line (RTU)  
-                                                  |  
-                                          +-------+---------+  
-                                          | Modbus Slave(s) |  
-                                          +-----------------+  
-  
-+------------------------+  
-|      MQTT Broker       |  <--- TLS / TCP --->  
-+------------------------+  
-         ▲        ▲  
-         |        |  
-    +----+    +---+----+  
-    | Home |  | Logging |  
-    |Assistant etc.     |  
-    +-------------------+  
++----------------+      Modbus TCP       +----------------+
+| TCP Client(s)  | <------------------>  |   Gateway       |
+|  (z. B. SCADA) |                      | (modbus_gateway)|
++----------------+                      +--------+--------+
+                                                  |
+                                                  | Serial Line (RTU)
+                                                  |
+                                          +-------+--------+
+                                          | Modbus Slave(s) |
+                                          +-----------------+
+
++------------------------+
+|      MQTT Broker       |  <--- TLS / TCP --->
++------------------------+
+         ▲        ▲
+         |        |
+    +----+    +---+----+
+    | Home |  | Logging |
+    |Assistant etc.     |
+    +-------------------+
 
 2.3. Architekturübersicht
 
@@ -379,6 +367,11 @@ signal(SIGTERM, signal_handler);
 
 Ermöglicht sauberen Shutdown bei CTRL+C oder systemd-Stop.
 
+📌 Nächstes Kapitel: Aufbau der INI-Konfiguration und Optionen
+Sag einfach weiter.
+Du:
+weiter
+ChatGPT:
 6. INI-Konfiguration – Aufbau und Optionen
 
 Die Konfiguration des Gateways erfolgt über eine klassische INI-Datei, typischerweise unter dem Pfad:
@@ -570,6 +563,11 @@ Aktivierung über:
 [log]
 hex_dump = 1
 
+📌 Nächstes Kapitel: TCP-Client-Schnittstelle & Protokollfluss (Modbus TCP ↔ RTU)
+Sag einfach weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 8. Modbus TCP ↔ RTU – Protokollfluss und Umsetzung
 
 Das Gateway fungiert als Protokollübersetzer: Es empfängt Modbus TCP-Anfragen von Clients, wandelt sie in Modbus RTU um, leitet sie via RS485 weiter und antwortet mit korrekt konstruierten Modbus TCP-Paketen.
@@ -653,6 +651,11 @@ modbus_set_response_timeout(ctx, 1, 0);  // 1 Sekunde Timeout
 
 Zuverlässige Antwortzeiten hängen stark vom RTU-Slave ab. Typische Roundtrip-Zeiten: 5 – 50 ms.
 
+📌 Weiter mit: Systemintegration via systemd, automatischer Start & Logrotate
+Antworte einfach mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 9. Systemintegration: systemd, Autostart & Logging
 
 Damit das Gateway beim Systemstart automatisch ausgeführt wird und sauber verwaltet werden kann, ist eine Integration mit systemd vorgesehen.
@@ -730,6 +733,11 @@ Konfiguration:
 
 /etc/modbus_gateway.ini
 
+📌 Weiter mit: Kompilierung, Makefile, Cross-Build für Raspberry Pi OS
+Antworte einfach mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 10. Kompilierung, Deployment und Makefile
 
 Die Anwendung wird mit g++ unter Linux kompiliert. Für den Einsatz auf einem Raspberry Pi (z. B. Pi 5 mit Raspberry Pi OS 64 Bit) kann nativ oder per Cross-Compile gebaut werden.
@@ -801,6 +809,11 @@ Bereitstellen auf GitHub oder lokal per scp auf den Ziel-Raspberry Pi kopieren:
 
 scp modbus_gateway.tar.gz pi@raspberrypi:/home/pi/
 
+📌 Weiter mit: Beispiele für MQTT und Modbus TCP Integration
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 11. Beispiele für MQTT und Modbus TCP Integration
 
 Dieses Kapitel zeigt praxisnahe Beispiele zur Nutzung des Gateways mit MQTT und Modbus TCP. Zielgruppe sind Integratoren, die das Gateway z. B. mit Node-RED, Home Assistant oder eigenen Automatisierungen einsetzen.
@@ -910,6 +923,11 @@ Inject Node:
 
 ➡️ Damit kann Node-RED Modbus-Werte setzen und auslesen – ideal für Automatisierung.
 
+📌 Weiter mit Kapitel 12: Fehlerbehandlung und Debugging
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 12. Fehlerbehandlung und Debugging
 
 Diese Sektion beschreibt, wie Fehler im Gateway erkannt, protokolliert und im Idealfall behoben werden können. Sie hilft sowohl Entwicklern als auch Integratoren, Probleme schneller zu analysieren.
@@ -982,7 +1000,11 @@ Das Gateway bricht TCP-Verbindungen nicht sofort bei jedem Fehler ab, sondern er
 
     Verbindungsabbrüche → sauberer Cleanup im shutdown_gateway()
 
-
+📌 Weiter mit Kapitel 13: Deployment und Systemintegration (systemd, Auto-Start)
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 13. Deployment und Systemintegration
 
 In diesem Kapitel wird beschrieben, wie das Modbus-Gateway auf einem Zielsystem (z. B. Raspberry Pi) installiert, automatisch gestartet und verwaltet wird. Dies umfasst sowohl manuelles Deployment als auch systemd-Integration.
@@ -1066,6 +1088,11 @@ Empfohlen:
 
     MQTT-Fehler und Wiederverbindungen werden automatisch gehandhabt
 
+📌 Weiter mit Kapitel 14: INI-Konfigurationsformat und Parameterreferenz
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 14. INI-Konfigurationsformat und Parameterreferenz
 
 Die zentrale Konfiguration des Gateways erfolgt über eine INI-Datei. Diese ermöglicht es, alle relevanten Parameter strukturiert zu setzen – von seriellen Einstellungen bis hin zu MQTT und Logging.
@@ -1149,6 +1176,11 @@ Parameter	Typ	Beschreibung
 file	String	Pfad zur Log-Datei
 hex_dump	0/1	Hexdump für Modbus-Rohdaten aktivieren (Debug)
 
+📌 Weiter mit Kapitel 15: Beispiele für MQTT-Kommunikation
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 15. Beispiele für MQTT-Kommunikation
 
 In diesem Kapitel werden typische MQTT-Kommandos und Nachrichtenformate beschrieben, um über MQTT auf Modbus-Geräte zuzugreifen oder Statusinformationen zu erhalten.
@@ -1248,6 +1280,11 @@ modbus/command/stats
 Payload: (optional, z. B. "now")
 Antwort erfolgt erneut auf modbus/stats.
 
+📌 Weiter mit Kapitel 16: Beispiele für Modbus TCP-Client
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 16. Beispiele für Modbus TCP-Kommunikation
 
 Dieses Kapitel zeigt, wie sich ein externer Modbus TCP-Client mit dem Gateway verbinden kann, um über die TCP-Schnittstelle auf die dahinterliegenden RTU-Geräte zuzugreifen. Das Gateway fungiert als Proxy zwischen TCP und serieller RTU-Verbindung.
@@ -1337,6 +1374,11 @@ Beispielausgabe:
 → RTU TX: 01 03 00 6B 00 03 76 87
 ← RTU RX: 01 03 06 02 2B 00 00 00 64 39 80
 
+📌 Weiter mit Kapitel 18: systemd-Integration, Startverhalten, Benutzerverwaltung
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 18. systemd-Integration, Autostart und Benutzerverwaltung
 
 Um das Gateway automatisch beim Systemstart zu laden und im Hintergrund als Dienst zu betreiben, kann eine systemd-Serviceeinheit verwendet werden.
@@ -1449,6 +1491,11 @@ Sende ein leeres MQTT-Message an:
 
 modbus/stats/reset
 
+📌 Weiter mit Kapitel 21: Fehlerbehandlung und Wiederverbindung
+Antworte mit weiter, um fortzufahren.
+Du:
+weiter
+ChatGPT:
 21. Fehlerbehandlung und Wiederverbindung
 21.1. Modbus RTU Fehlerbehandlung
 
