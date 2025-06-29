@@ -4,6 +4,12 @@
 CROSS_COMPILE := aarch64-linux-gnu
 SYSROOT := $(HOME)/sysroot-aarch64
 
+VERSION := 1.0.1
+RELEASE_NAME := modbus_gateway-$(VERSION)
+RELEASE_DIR := /tmp/$(RELEASE_NAME)
+RELEASE_FILE := $(RELEASE_NAME).tar.gz
+
+
 SRC_DIR := src
 BUILD_DIR := build
 TARGET_DIR := target
@@ -89,10 +95,6 @@ check_sysroot:
 		echo "✅ iostream im Sysroot gefunden."; \
 	fi
 
-VERSION := 1.0.0
-RELEASE_NAME := modbus_gateway-$(VERSION)
-RELEASE_DIR := /tmp/$(RELEASE_NAME)
-RELEASE_FILE := $(RELEASE_NAME).tar.gz
 
 release:
 	@echo "Erzeuge Release-Verzeichnis..."
