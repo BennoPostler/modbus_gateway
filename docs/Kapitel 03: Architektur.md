@@ -1,5 +1,5 @@
 ---
-title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+title: "Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi"
 layout: default
 ---
 
