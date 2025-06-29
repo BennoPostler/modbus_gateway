@@ -104,8 +104,8 @@ release:
 	cp src/modbus_gateway.cpp modbus_gateway.ini Makefile modbus_gateway.service README.md LICENSE $(RELEASE_DIR)
 
 	@echo "Erzeuge Archiv..."
-	tar -czf $(RELEASE_FILE) -C /tmp $(RELEASE_NAME)
-	@echo "Release-Datei erstellt: $(RELEASE_FILE)"
+	tar -czf releases/$(RELEASE_FILE) -C /tmp $(RELEASE_NAME)
+	@echo "Release-Datei erstellt: releases/$(RELEASE_FILE)"
 
 
 # ---------------------------
