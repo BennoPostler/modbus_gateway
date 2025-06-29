@@ -1,6 +1,6 @@
 {
   "terminal.integrated.env.linux": {
-    "SYSROOT": "home/benno/sysroot-aarch64"
+    "SYSROOT": "${env:HOME}/sysroot-aarch64"
   },
   "cmake.toolchain": "toolchain-aarch64.cmake",
   "cmake.generator": "Ninja",

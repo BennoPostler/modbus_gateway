@@ -2,7 +2,7 @@
 # Projektkonfiguration
 # ---------------------------
 CROSS_COMPILE := aarch64-linux-gnu
-SYSROOT := /home/benno/sysroot-aarch64
+SYSROOT := $(HOME)/sysroot-aarch64
 
 SRC_DIR := src
 BUILD_DIR := build

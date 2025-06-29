@@ -6,12 +6,12 @@
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/third_party/paho.mqtt.cpp/src",
                 "${workspaceFolder}/third_party/paho.mqtt.c/src",
-                "/home/benno/sysroot-aarch64/usr/include",
-                "/home/benno/sysroot-aarch64/usr/include/aarch64-linux-gnu",
-                "/home/benno/sysroot-aarch64/usr/include/c++/12",
-                "/home/benno/sysroot-aarch64/usr/include/aarch64-linux-gnu/c++/12",
-                "/home/benno/sysroot-aarch64/usr/include/c++/12/bits",
-                "/home/benno/sysroot-aarch64/usr/include/aarch64-linux-gnu/c++/12/bits"
+                "${env:HOME}/sysroot-aarch64/usr/include",
+                "${env:HOME}/sysroot-aarch64/usr/include/aarch64-linux-gnu",
+                "${env:HOME}/sysroot-aarch64/usr/include/c++/12",
+                "${env:HOME}/sysroot-aarch64/usr/include/aarch64-linux-gnu/c++/12",
+                "${env:HOME}/sysroot-aarch64/usr/include/c++/12/bits",
+                "${env:HOME}/sysroot-aarch64/usr/include/aarch64-linux-gnu/c++/12/bits"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/aarch64-linux-gnu-g++",
@@ -19,7 +19,7 @@
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-arm64",
             "compilerArgs": [
-                "--sysroot=/home/benno/sysroot-aarch64"
+                "--sysroot=${env:HOME}/sysroot-aarch64"
             ]
         }
     ],

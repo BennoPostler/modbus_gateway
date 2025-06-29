@@ -9,7 +9,7 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "SYSROOT": "home/benno/sysroot-aarch64"
+                    "SYSROOT": "${env:HOME}/sysroot-aarch64"
                 }
             },
             "group": "build",
@@ -25,7 +25,7 @@
                 "${file}",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}",
-                "--sysroot=/home/benno/sysroot-aarch64"
+                "--sysroot=${env:HOME}/sysroot-aarch64"
             ],
             "options": {
                 "cwd": "${fileDirname}"

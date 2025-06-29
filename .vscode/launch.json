@@ -12,8 +12,8 @@
         "address": "192.168.0.73:2345",
         "mode": "remote",
         "execfile": "modbus_gateway",
-        "user": "benno",
-        "password": "sagitarius",
+        "user": "",
+        "password": "",
         "debuginfod": {
           "enabled": true
         }
