@@ -1,3 +1,9 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
+
 # Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
 
 Ein leistungsfähiges Open-Source-Gateway für die Integration von **Modbus RTU**, **Modbus TCP** und **MQTT**.  
