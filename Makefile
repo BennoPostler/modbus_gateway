@@ -89,6 +89,25 @@ check_sysroot:
 		echo "✅ iostream im Sysroot gefunden."; \
 	fi
 
+VERSION := 1.0.0
+RELEASE_NAME := modbus_gateway-$(VERSION)
+RELEASE_DIR := /tmp/$(RELEASE_NAME)
+RELEASE_FILE := $(RELEASE_NAME).tar.gz
+
+release:
+	@echo "Erzeuge Release-Verzeichnis..."
+	rm -rf $(RELEASE_DIR)
+	mkdir -p $(RELEASE_DIR)
+
+	@echo "Kopiere Dateien..."
+	cp -r src include third_party docs $(RELEASE_DIR)
+	cp modbus_gateway.cpp modbus_gateway.ini Makefile modbus_gateway.service README.md LICENSE $(RELEASE_DIR)
+
+	@echo "Erzeuge Archiv..."
+	tar -czf $(RELEASE_FILE) -C /tmp $(RELEASE_NAME)
+	@echo "Release-Datei erstellt: $(RELEASE_FILE)"
+
+
 # ---------------------------
 # Aufräumen
 # ---------------------------
