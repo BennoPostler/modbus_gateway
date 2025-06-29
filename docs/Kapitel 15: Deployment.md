@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🚀 Kapitel 15: Deployment
 
 In diesem Kapitel beschreiben wir den empfohlenen Ablauf für die Bereitstellung (Deployment) des Gateways auf einem Zielsystem – typischerweise einem Raspberry Pi 5 mit Raspberry Pi OS (64-bit).

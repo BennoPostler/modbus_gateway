@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🧩 Kapitel 19: Codeübersicht & Projektstruktur
 
 Dieses Kapitel bietet eine strukturierte Übersicht über alle relevanten Quellcodedateien, deren Zuständigkeiten und das Zusammenspiel der einzelnen Module im Projekt. Es richtet sich sowohl an Entwickler (zur Erweiterung oder Wartung) als auch an Systemintegratoren (zur Anpassung und Integration).

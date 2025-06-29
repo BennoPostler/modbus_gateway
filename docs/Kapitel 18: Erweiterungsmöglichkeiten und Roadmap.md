@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🚀 Kapitel 18: Erweiterungsmöglichkeiten & Roadmap
 
 Dieses Kapitel beleuchtet denkbare künftige Erweiterungen deines Gateways sowie Optionen zur Modularisierung, Optimierung und Integration in größere Systeme. Es dient gleichzeitig als Ideensammlung für spätere Versionen.

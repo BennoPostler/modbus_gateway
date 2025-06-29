@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🔐 Kapitel 11: TLS & Sicherheit
 🧭 Ziel der TLS-Unterstützung
 

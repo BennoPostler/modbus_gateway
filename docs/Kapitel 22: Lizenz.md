@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🏷️ Kapitel 22: Lizenz
 
 Dieses Projekt folgt dem Prinzip der Offenheit, Transparenz und freien Weiterverwendung, orientiert an etablierten Open-Source-Praktiken. In diesem Kapitel findest du alle Lizenzinformationen für das Gateway selbst sowie alle verwendeten Bibliotheken.

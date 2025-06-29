@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 📎 Kapitel 23: Anhang
 
 Dieses Kapitel enthält ergänzende Informationen, Referenzlisten, Tools sowie wichtige Tabellen, die für Entwicklung, Integration und Fehlersuche hilfreich sind.

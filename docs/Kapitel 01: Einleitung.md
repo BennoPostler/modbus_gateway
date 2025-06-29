@@ -1,3 +1,8 @@
+---
+title: "Kapitel 1: Einleitung"
+layout: default
+---
+
 🧩 Kapitel 1: Einleitung
 Ziel des Projekts
 

@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 ❗ Kapitel 13: Fehlerbehandlung
 🧩 Ziel der Fehlerbehandlung
 

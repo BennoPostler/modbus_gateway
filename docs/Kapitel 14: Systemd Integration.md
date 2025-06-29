@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🧩 Kapitel 14: Systemd Integration
 
 Dieses Kapitel beschreibt die Integration des Modbus-Gateways als systemd-Service unter Linux – insbesondere für Raspberry Pi OS (Debian-basiert), aber auch allgemein unter allen Systemd-fähigen Distributionen wie Fedora, Ubuntu oder Arch.

@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🧪 Kapitel 16: Beispiele – Modbus TCP, MQTT, YAML-Konfiguration
 
 In diesem Kapitel findest du eine Vielzahl von praktischen Beispielen, die dir als Referenz und Testhilfe dienen – ideal für Entwickler, Integratoren und zur Fehlersuche im Betrieb.

@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🧯 Kapitel 17: Troubleshooting & Fehlersuche
 
 Dieses Kapitel hilft dir bei der systematischen Diagnose, wenn etwas nicht wie erwartet funktioniert. Es enthält typische Fehlersymptome, mögliche Ursachen und empfohlene Lösungswege.

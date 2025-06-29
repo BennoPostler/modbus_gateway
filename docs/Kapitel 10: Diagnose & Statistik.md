@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 📊 Kapitel 10: Diagnose & Statistik
 🧭 Ziel der Statistikfunktionen
 

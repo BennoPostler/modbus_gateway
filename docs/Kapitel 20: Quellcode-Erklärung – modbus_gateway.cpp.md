@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🧬 Kapitel 20: Quellcode-Erklärung – modbus_gateway.cpp
 
 Dieses Kapitel enthält eine ausführliche Erklärung des zentralen Quellcodes. Ziel ist es, alle relevanten Logikabschnitte nachvollziehbar zu beschreiben, damit Entwickler sich schnell einarbeiten und das Verhalten anpassen können.

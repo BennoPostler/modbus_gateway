@@ -1,3 +1,8 @@
+---
+title: Modbus Gateway – MQTT, TCP & RTU Integration für Raspberry Pi
+layout: default
+---
+
 🧩 Kapitel 21: Verwendete Bibliotheken und Abhängigkeiten
 
 In diesem Kapitel werden sämtliche externen und internen Bibliotheken aufgelistet, die im Projekt modbus_gateway verwendet werden – inklusive Zweck, Lizenz, Integration und Besonderheiten.
